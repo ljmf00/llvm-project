@@ -24,12 +24,19 @@ static bool isRustEncoding(const std::string &MangledName) {
          MangledName[1] == 'R';
 }
 
+static bool isDLangEncoding(const std::string &MangledName) {
+  return MangledName.size() >= 2 && MangledName[0] == '_' &&
+         MangledName[1] == 'D';
+}
+
 std::string llvm::demangle(const std::string &MangledName) {
   char *Demangled;
   if (isItaniumEncoding(MangledName))
     Demangled = itaniumDemangle(MangledName.c_str(), nullptr, nullptr, nullptr);
   else if (isRustEncoding(MangledName))
     Demangled = rustDemangle(MangledName.c_str(), nullptr, nullptr, nullptr);
+  else if (isDLangEncoding(MangledName))
+    Demangled = dlangDemangle(MangledName.c_str());
   else
     Demangled = microsoftDemangle(MangledName.c_str(), nullptr, nullptr,
                                   nullptr, nullptr);
