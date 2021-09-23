@@ -92,6 +92,11 @@ static std::string demangle(const std::string &Mangled) {
     Undecorated = rustDemangle(DecoratedStr, nullptr, nullptr, &Status);
   }
 
+  if (!Undecorated &&
+      (DecoratedLength >= 2 && strncmp(DecoratedStr, "_D", 2) == 0)) {
+    Undecorated = dlangDemangle(DecoratedStr);
+  }
+
   std::string Result(Undecorated ? Prefix + Undecorated : Mangled);
   free(Undecorated);
   return Result;
