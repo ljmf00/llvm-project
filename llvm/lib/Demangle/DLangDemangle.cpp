@@ -115,6 +115,17 @@ private:
   /// \see https://dlang.org/spec/abi.html#QualifiedName .
   const char *parseQualified(OutputBuffer *Demangled, const char *Mangled);
 
+  /// Extract and demangle a type from a given mangled symbol append it to
+  /// the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Type .
+  const char *parseType(OutputBuffer *Demangled, const char *Mangled);
+
   /// The string we are demangling.
   const char *Str;
 };
@@ -174,8 +185,13 @@ const char *Demangler::parseMangle(OutputBuffer *Demangled,
     if (*Mangled == 'Z')
       ++Mangled;
     else {
-      // TODO: Implement symbols with types.
-      return nullptr;
+      // Discard the declaration or return type.
+      OutputBuffer Type;
+      if (!initializeOutputBuffer(nullptr, nullptr, Type, 32))
+        return nullptr;
+
+      Mangled = parseType(&Type, Mangled);
+      std::free(Type.getBuffer());
     }
   }
 
@@ -260,6 +276,255 @@ const char *Demangler::parseIdentifier(OutputBuffer *Demangled,
   }
 
   return parseLName(Demangled, Mangled, Len);
+}
+
+const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
+  if (Mangled == nullptr || *Mangled == '\0')
+    return nullptr;
+
+  switch (*Mangled) {
+  case 'O': // shared(T)
+    ++Mangled;
+    *Demangled << "shared(";
+    Mangled = parseType(Demangled, Mangled);
+    *Demangled << ')';
+    return Mangled;
+
+  case 'x': // const(T)
+    ++Mangled;
+    *Demangled << "const(";
+    Mangled = parseType(Demangled, Mangled);
+    *Demangled << ')';
+    return Mangled;
+
+  case 'y': // immutable(T)
+    ++Mangled;
+    *Demangled << "immutable(";
+    Mangled = parseType(Demangled, Mangled);
+    *Demangled << ')';
+    return Mangled;
+
+  case 'N':
+    ++Mangled;
+
+    switch (*Mangled) {
+    case 'g': // wild(T)
+      ++Mangled;
+      *Demangled << "inout(";
+      Mangled = parseType(Demangled, Mangled);
+      *Demangled << ')';
+      return Mangled;
+
+    case 'h': // vector(T)
+      ++Mangled;
+      *Demangled << "__vector(";
+      Mangled = parseType(Demangled, Mangled);
+      *Demangled << ')';
+      return Mangled;
+
+    case 'n': // typeof(*null)
+      ++Mangled;
+      *Demangled << "typeof(*null)";
+      return Mangled;
+    }
+
+    // invalid.
+    return nullptr;
+
+  case 'A': // dynamic array (T[])
+    ++Mangled;
+    Mangled = parseType(Demangled, Mangled);
+    *Demangled << "[]";
+    return Mangled;
+
+  case 'G': // static array (T[N])
+  {
+    const char *NumPtr;
+    size_t Num = 0;
+    ++Mangled;
+
+    NumPtr = Mangled;
+    while (std::isdigit(*Mangled)) {
+      ++Num;
+      ++Mangled;
+    }
+    Mangled = parseType(Demangled, Mangled);
+    *Demangled << '[';
+    *Demangled << StringView(NumPtr, Num);
+    *Demangled << ']';
+    return Mangled;
+  }
+
+  case 'H': // associative array (T[T])
+  {
+    OutputBuffer Type;
+    if (!initializeOutputBuffer(nullptr, nullptr, Type, 32))
+      return nullptr;
+
+    size_t Sztype;
+    ++Mangled;
+
+    Mangled = parseType(&Type, Mangled);
+    Sztype = Type.getCurrentPosition();
+
+    Mangled = parseType(Demangled, Mangled);
+    *Demangled << '[';
+    *Demangled << StringView(Type.getBuffer(), Sztype);
+    *Demangled << ']';
+
+    std::free(Type.getBuffer());
+    return Mangled;
+  }
+
+  case 'P': // pointer (T*)
+    ++Mangled;
+    if (!isCallConvention(Mangled)) {
+      Mangled = parseType(Demangled, Mangled);
+      *Demangled << '*';
+      return Mangled;
+    }
+
+    // TODO: Parse function types.
+
+    [[clang::fallthrough]];
+  case 'C': // class T
+  case 'S': // struct T
+  case 'E': // enum T
+  case 'T': // typedef T
+    ++Mangled;
+    // TODO: Handle type modifiers and type functions in qualifiers.
+    return parseQualified(Demangled, Mangled);
+
+  // TODO: Parse delegate types.
+  // TODO: Parse tuple types.
+
+  // Basic types.
+  case 'n':
+    ++Mangled;
+    *Demangled << "typeof(null)";
+    return Mangled;
+
+  case 'v':
+    ++Mangled;
+    *Demangled << "void";
+    return Mangled;
+
+  case 'g':
+    ++Mangled;
+    *Demangled << "byte";
+    return Mangled;
+  case 'h':
+    ++Mangled;
+    *Demangled << "ubyte";
+    return Mangled;
+
+  case 's':
+    ++Mangled;
+    *Demangled << "short";
+    return Mangled;
+  case 't':
+    ++Mangled;
+    *Demangled << "ushort";
+    return Mangled;
+
+  case 'i':
+    ++Mangled;
+    *Demangled << "int";
+    return Mangled;
+  case 'k':
+    ++Mangled;
+    *Demangled << "uint";
+    return Mangled;
+
+  case 'l':
+    ++Mangled;
+    *Demangled << "long";
+    return Mangled;
+  case 'm':
+    ++Mangled;
+    *Demangled << "ulong";
+    return Mangled;
+
+  case 'f':
+    ++Mangled;
+    *Demangled << "float";
+    return Mangled;
+  case 'd':
+    ++Mangled;
+    *Demangled << "double";
+    return Mangled;
+  case 'e':
+    ++Mangled;
+    *Demangled << "real";
+    return Mangled;
+
+  // Imaginary types.
+  case 'o':
+    ++Mangled;
+    *Demangled << "ifloat";
+    return Mangled;
+  case 'p':
+    ++Mangled;
+    *Demangled << "idouble";
+    return Mangled;
+  case 'j':
+    ++Mangled;
+    *Demangled << "ireal";
+    return Mangled;
+
+  // Complex types.
+  case 'q':
+    ++Mangled;
+    *Demangled << "cfloat";
+    return Mangled;
+  case 'r':
+    ++Mangled;
+    *Demangled << "cdouble";
+    return Mangled;
+  case 'c':
+    ++Mangled;
+    *Demangled << "creal";
+    return Mangled;
+
+  // Other types.
+  case 'b':
+    ++Mangled;
+    *Demangled << "bool";
+    return Mangled;
+
+  case 'a':
+    ++Mangled;
+    *Demangled << "char";
+    return Mangled;
+  case 'u':
+    ++Mangled;
+    *Demangled << "wchar";
+    return Mangled;
+  case 'w':
+    ++Mangled;
+    *Demangled << "dchar";
+    return Mangled;
+
+  case 'z':
+    ++Mangled;
+
+    switch (*Mangled) {
+    case 'i':
+      ++Mangled;
+      *Demangled << "cent";
+      return Mangled;
+    case 'k':
+      ++Mangled;
+      *Demangled << "ucent";
+      return Mangled;
+    }
+    return nullptr;
+
+    // TODO: Parse back referenced types.
+
+  default: // unhandled.
+    return nullptr;
+  }
 }
 
 const char *Demangler::parseLName(OutputBuffer *Demangled, const char *Mangled,

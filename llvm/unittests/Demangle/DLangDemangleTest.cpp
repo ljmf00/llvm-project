@@ -47,4 +47,8 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle4test12__ModuleInfoZ",
                        "ModuleInfo for demangle.test"),
         std::make_pair("_D8demangle4__S14testZ", "demangle.test"),
-        std::make_pair("_D8demangle4__Sd4testZ", "demangle.__Sd.test")));
+        std::make_pair("_D8demangle4__Sd4testZ", "demangle.__Sd.test"),
+        std::make_pair("_D8demangle1ii", "demangle.i"),
+        std::make_pair("_D8demangle2siOi", "demangle.si"),
+        std::make_pair("_D8demangle1re", "demangle.r"),
+        std::make_pair("_D8demangle1iinvalidtypeseq", nullptr)));
