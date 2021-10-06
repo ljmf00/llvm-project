@@ -117,6 +117,18 @@ private:
   /// \see https://dlang.org/spec/abi.html#TypeBackRef .
   const char *parseTypeBackref(OutputBuffer *Demangled, const char *Mangled);
 
+  /// Extract and demangle calling convention from a given mangled symbol and
+  /// append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#CallConvention .
+  /// \see https://dlang.org/spec/abi.html#function_calling_conventions .
+  const char *parseCallConvention(OutputBuffer *Demangled, const char *Mangled);
+
   /// Check whether it is the beginning of a symbol name.
   ///
   /// \param Mangled string to extract the symbol name.
@@ -161,6 +173,58 @@ private:
   ///
   /// \see https://dlang.org/spec/abi.html#QualifiedName .
   const char *parseQualified(OutputBuffer *Demangled, const char *Mangled);
+
+  /// Extract and demangle the D function attributes from a given mangled
+  /// symbol append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#FuncAttr .
+  const char *parseAttributes(OutputBuffer *Demangled, const char *Mangled);
+
+  /// Extract and demangle the function type from a given mangled symbol
+  /// without the return type and append it to the arguments, calling
+  /// convention and attribute output strings, respectively.
+  ///
+  /// \param Args output buffer to write the demangled arguments.
+  /// \param Call output buffer to write the demangled calling convention.
+  /// \param Attr output buffer to write the demangled attributes.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \note Any of the output strings can be nullptr to throw the information
+  ///       away.
+  ///
+  /// \see https://dlang.org/spec/abi.html#TypeFunctionNoReturn .
+  const char *parseFunctionTypeNoreturn(OutputBuffer *Args, OutputBuffer *Call,
+                                        OutputBuffer *Attr,
+                                        const char *Mangled);
+
+  /// Extract and demangle the function type from a given mangled symbol
+  /// append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#TypeFunction .
+  const char *parseFunctionType(OutputBuffer *Demangled, const char *Mangled);
+
+  /// Extract and demangle the function arguments list from a given mangled
+  /// symbol append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Parameters .
+  const char *parseFunctionArgs(OutputBuffer *Demangled, const char *Mangled);
 
   /// Extract and demangle a type from a given mangled symbol append it to
   /// the output string.
@@ -342,6 +406,184 @@ bool Demangler::isSymbolName(const char *Mangled) {
   return std::isdigit(Qref[-Ret]);
 }
 
+const char *Demangler::parseCallConvention(OutputBuffer *Demangled,
+                                           const char *Mangled) {
+  if (Mangled == nullptr || *Mangled == '\0')
+    return nullptr;
+
+  switch (*Mangled) {
+  case 'F': // D
+    ++Mangled;
+    break;
+
+  case 'U': // C
+    ++Mangled;
+    *Demangled << "extern(C) ";
+    break;
+
+  case 'W': // Windows
+    ++Mangled;
+    *Demangled << "extern(Windows) ";
+    break;
+
+  case 'V': // Pascal
+    ++Mangled;
+    *Demangled << "extern(Pascal) ";
+    break;
+
+  case 'R': // C++
+    ++Mangled;
+    *Demangled << "extern(C++) ";
+    break;
+
+  case 'Y': // Objective-C
+    ++Mangled;
+    *Demangled << "extern(Objective-C) ";
+    break;
+
+  default:
+    return nullptr;
+  }
+
+  return Mangled;
+}
+
+const char *Demangler::parseAttributes(OutputBuffer *Demangled,
+                                       const char *Mangled) {
+  if (Mangled == nullptr || *Mangled == '\0')
+    return nullptr;
+
+  while (*Mangled == 'N') {
+    ++Mangled;
+    switch (*Mangled) {
+    case 'a': // pure
+      ++Mangled;
+      *Demangled << "pure ";
+      continue;
+
+    case 'b': // nothrow
+      ++Mangled;
+      *Demangled << "nothrow ";
+      continue;
+
+    case 'c': // ref
+      ++Mangled;
+      *Demangled << "ref ";
+      continue;
+
+    case 'd': // @property
+      ++Mangled;
+      *Demangled << "@property ";
+      continue;
+
+    case 'e': // @trusted
+      ++Mangled;
+      *Demangled << "@trusted ";
+      continue;
+
+    case 'f': // @safe
+      ++Mangled;
+      *Demangled << "@safe ";
+      continue;
+
+    case 'g':
+    case 'h':
+    case 'k':
+    case 'n':
+      // inout parameter is represented as 'Ng'.
+      // vector parameter is represented as 'Nh'.
+      // return parameter is represented as 'Nk'.
+      // typeof(*null) parameter is represented as 'Nn'.
+      // If we see this, then we know we're really in the
+      // parameter list. Rewind and break.
+      Mangled--;
+      break;
+
+    case 'i': // @nogc
+      ++Mangled;
+      *Demangled << "@nogc ";
+      continue;
+
+    case 'j': // return
+      ++Mangled;
+      *Demangled << "return ";
+      continue;
+
+    case 'l': // scope
+      ++Mangled;
+      *Demangled << "scope ";
+      continue;
+
+    case 'm': // @live
+      ++Mangled;
+      *Demangled << "@live ";
+      continue;
+
+    default: // unknown attribute
+      return nullptr;
+    }
+    break;
+  }
+
+  return Mangled;
+}
+
+const char *Demangler::parseFunctionTypeNoreturn(OutputBuffer *Args,
+                                                 OutputBuffer *Call,
+                                                 OutputBuffer *Attr,
+                                                 const char *Mangled) {
+  OutputBuffer Dump;
+  if (!initializeOutputBuffer(nullptr, nullptr, Dump, 32))
+    return nullptr;
+
+  // Skip over calling convention and attributes
+  Mangled = parseCallConvention(Call ? Call : &Dump, Mangled);
+  Mangled = parseAttributes(Attr ? Attr : &Dump, Mangled);
+
+  if (Args)
+    *Args << '(';
+
+  Mangled = parseFunctionArgs(Args ? Args : &Dump, Mangled);
+  if (Args)
+    *Args << ')';
+
+  std::free(Dump.getBuffer());
+  return Mangled;
+}
+
+const char *Demangler::parseFunctionType(OutputBuffer *Demangled,
+                                         const char *Mangled) {
+  OutputBuffer Attr, Args, Type;
+
+  if (Mangled == nullptr || *Mangled == '\0')
+    return nullptr;
+
+  // The order of the mangled string is:
+  //    CallConvention FuncAttrs Arguments ArgClose Type
+  // The demangled string is re-ordered as:
+  //    CallConvention Type Arguments FuncAttrs
+  if (!initializeOutputBuffer(nullptr, nullptr, Attr, 32) ||
+      !initializeOutputBuffer(nullptr, nullptr, Args, 32) ||
+      !initializeOutputBuffer(nullptr, nullptr, Type, 32))
+    return nullptr;
+
+  Mangled = parseFunctionTypeNoreturn(&Args, Demangled, &Attr, Mangled);
+
+  // Function return type
+  Mangled = parseType(&Type, Mangled);
+
+  // Append to decl in order
+  *Demangled << StringView(Type.getBuffer(), Type.getCurrentPosition());
+  *Demangled << StringView(Args.getBuffer(), Args.getCurrentPosition());
+  *Demangled << ' ';
+  *Demangled << StringView(Attr.getBuffer(), Attr.getCurrentPosition());
+
+  std::free(Attr.getBuffer());
+  std::free(Args.getBuffer());
+  std::free(Type.getBuffer());
+  return Mangled;
+}
+
 const char *Demangler::parseMangle(OutputBuffer *Demangled,
                                    const char *Mangled) {
   // A D mangled symbol is comprised of both scope and type information.
@@ -458,6 +700,69 @@ const char *Demangler::parseIdentifier(OutputBuffer *Demangled,
   return parseLName(Demangled, Mangled, Len);
 }
 
+const char *Demangler::parseFunctionArgs(OutputBuffer *Demangled,
+                                         const char *Mangled) {
+  size_t N = 0;
+
+  while (Mangled && *Mangled != '\0') {
+    switch (*Mangled) {
+    case 'X': // (variadic T t...) style
+      ++Mangled;
+      *Demangled << "...";
+      return Mangled;
+    case 'Y': // (variadic T t, ...) style
+      ++Mangled;
+      *Demangled << ", ...";
+      return Mangled;
+    case 'Z': // Normal function
+      ++Mangled;
+      return Mangled;
+    }
+
+    if (N++)
+      *Demangled << ", ";
+
+    if (*Mangled == 'M') // scope(T)
+    {
+      ++Mangled;
+      *Demangled << "scope ";
+    }
+
+    if (Mangled[0] == 'N' && Mangled[1] == 'k') // return(T)
+    {
+      Mangled += 2;
+      *Demangled << "return ";
+    }
+
+    switch (*Mangled) {
+    case 'I': // in(T)
+      ++Mangled;
+      *Demangled << "in ";
+      if (*Mangled == 'K') // in ref(T)
+      {
+        ++Mangled;
+        *Demangled << "ref ";
+      }
+      break;
+    case 'J': // out(T)
+      ++Mangled;
+      *Demangled << "out ";
+      break;
+    case 'K': // ref(T)
+      ++Mangled;
+      *Demangled << "ref ";
+      break;
+    case 'L': // lazy(T)
+      ++Mangled;
+      *Demangled << "lazy ";
+      break;
+    }
+    Mangled = parseType(Demangled, Mangled);
+  }
+
+  return Mangled;
+}
+
 const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
   if (Mangled == nullptr || *Mangled == '\0')
     return nullptr;
@@ -564,9 +869,18 @@ const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
       return Mangled;
     }
 
-    // TODO: Parse function types.
-
     [[clang::fallthrough]];
+  case 'F': // function T (D)
+  case 'U': // function T (C)
+  case 'W': // function T (Windows)
+  case 'V': // function T (Pascal)
+  case 'R': // function T (C++)
+  case 'Y': // function T (Objective-C)
+    // Function pointer types don't include the trailing asterisk.
+    Mangled = parseFunctionType(Demangled, Mangled);
+    *Demangled << "function";
+    return Mangled;
+
   case 'C': // class T
   case 'S': // struct T
   case 'E': // enum T

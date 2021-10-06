@@ -55,4 +55,5 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle3ABCQeQg1ai", "demangle.ABC.ABC.ABC.a"),
         std::make_pair("_D8demangle3ABCQeQaaaa1ai", nullptr),
         std::make_pair("_D8demangle4ABCiQfQh1aQh", "demangle.ABCi.ABCi.ABCi.a"),
-        std::make_pair("_D8demangle4ABCiQfQh1aQaaa", nullptr)));
+        std::make_pair("_D8demangle4ABCiQfQh1aQaaa", nullptr),
+        std::make_pair("_D8demangle4testPFLAiYi", "demangle.test")));
