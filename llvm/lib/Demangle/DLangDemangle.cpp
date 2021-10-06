@@ -129,6 +129,16 @@ private:
   /// \see https://dlang.org/spec/abi.html#function_calling_conventions .
   const char *parseCallConvention(OutputBuffer *Demangled, const char *Mangled);
 
+  /// Check whether it is a function calling convention.
+  ///
+  /// \param Mangled string to extract the function calling convention.
+  ///
+  /// \return True on success, false otherwise.
+  ///
+  /// \see https://dlang.org/spec/abi.html#CallConvention .
+  /// \see https://dlang.org/spec/abi.html#function_calling_conventions .
+  bool isCallConvention(const char *Mangled);
+
   /// Check whether it is the beginning of a symbol name.
   ///
   /// \param Mangled string to extract the symbol name.
@@ -168,11 +178,14 @@ private:
   ///
   /// \param Demangled Output buffer to write the demangled name.
   /// \param Mangled Mangled symbol to be demangled.
+  /// \param SuffixModifiers True if we are printing the modifiers after the
+  ///                        symbol, false otherwise.
   ///
   /// \return The remaining string on success or nullptr on failure.
   ///
   /// \see https://dlang.org/spec/abi.html#QualifiedName .
-  const char *parseQualified(OutputBuffer *Demangled, const char *Mangled);
+  const char *parseQualified(OutputBuffer *Demangled, const char *Mangled,
+                             bool SuffixModifiers);
 
   /// Extract and demangle the D function attributes from a given mangled
   /// symbol append it to the output string.
@@ -236,6 +249,17 @@ private:
   ///
   /// \see https://dlang.org/spec/abi.html#Type .
   const char *parseType(OutputBuffer *Demangled, const char *Mangled);
+
+  /// Extract and demangle the type modifiers from a given mangled symbol
+  /// append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#TypeModifiers .
+  const char *parseTypeModifiers(OutputBuffer *Demangled, const char *Mangled);
 
   /// The string we are demangling.
   const char *Str;
@@ -385,6 +409,21 @@ const char *Demangler::parseTypeBackref(OutputBuffer *Demangled,
     return nullptr;
 
   return Mangled;
+}
+
+bool Demangler::isCallConvention(const char *Mangled) {
+  switch (*Mangled) {
+  case 'F':
+  case 'U':
+  case 'V':
+  case 'W':
+  case 'R':
+  case 'Y':
+    return true;
+
+  default:
+    return false;
+  }
 }
 
 bool Demangler::isSymbolName(const char *Mangled) {
@@ -597,7 +636,7 @@ const char *Demangler::parseMangle(OutputBuffer *Demangled,
   // a function or the type of a variable.
   Mangled += 2;
 
-  Mangled = parseQualified(Demangled, Mangled);
+  Mangled = parseQualified(Demangled, Mangled, true);
 
   if (Mangled != nullptr) {
     // Artificial symbols end with 'Z' and have no type.
@@ -618,7 +657,8 @@ const char *Demangler::parseMangle(OutputBuffer *Demangled,
 }
 
 const char *Demangler::parseQualified(OutputBuffer *Demangled,
-                                      const char *Mangled) {
+                                      const char *Mangled,
+                                      bool SuffixModifiers) {
   // Qualified names are identifiers separated by their encoded length.
   // Nested functions also encode their argument types without specifying
   // what they return.
@@ -651,9 +691,74 @@ const char *Demangler::parseQualified(OutputBuffer *Demangled,
 
     Mangled = parseIdentifier(Demangled, Mangled);
 
+    if (Mangled && (*Mangled == 'M' || isCallConvention(Mangled))) {
+      const char *Start = Mangled;
+      int Saved = Demangled->getCurrentPosition();
+
+      // Save the type modifiers for appending at the end if needed.
+      OutputBuffer Mods;
+      if (!initializeOutputBuffer(nullptr, nullptr, Mods, 32))
+        return nullptr;
+
+      // Skip over 'this' parameter and type modifiers.
+      if (*Mangled == 'M') {
+        ++Mangled;
+        Mangled = parseTypeModifiers(&Mods, Mangled);
+        Demangled->setCurrentPosition(Saved);
+      }
+
+      Mangled = parseFunctionTypeNoreturn(Demangled, nullptr, nullptr, Mangled);
+      if (SuffixModifiers)
+        *Demangled << StringView(Mods.getBuffer(), Mods.getCurrentPosition());
+
+      if (Mangled == nullptr || *Mangled == '\0') {
+        // Did not match the rule we were looking for.
+        Mangled = Start;
+        Demangled->setCurrentPosition(Saved);
+      }
+
+      std::free(Mods.getBuffer());
+    }
   } while (Mangled && isSymbolName(Mangled));
 
   return Mangled;
+}
+
+const char *Demangler::parseTypeModifiers(OutputBuffer *Demangled,
+                                          const char *Mangled) {
+  if (Mangled == nullptr || *Mangled == '\0')
+    return nullptr;
+
+  switch (*Mangled) {
+  case 'x': // const
+    ++Mangled;
+    *Demangled << " const";
+    return Mangled;
+
+  case 'y': // immutable
+    ++Mangled;
+    *Demangled << " immutable";
+    return Mangled;
+
+  case 'O': // shared
+    ++Mangled;
+    *Demangled << " shared";
+    return parseTypeModifiers(Demangled, Mangled);
+
+  case 'N':
+    ++Mangled;
+    if (*Mangled == 'g') // wild
+    {
+      ++Mangled;
+      *Demangled << " inout";
+      return parseTypeModifiers(Demangled, Mangled);
+    }
+
+    return nullptr;
+
+  default:
+    return Mangled;
+  }
 }
 
 const char *Demangler::parseIdentifier(OutputBuffer *Demangled,
@@ -886,8 +991,7 @@ const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
   case 'E': // enum T
   case 'T': // typedef T
     ++Mangled;
-    // TODO: Handle type modifiers and type functions in qualifiers.
-    return parseQualified(Demangled, Mangled);
+    return parseQualified(Demangled, Mangled, false);
 
   // TODO: Parse delegate types.
   // TODO: Parse tuple types.
@@ -1027,6 +1131,18 @@ const char *Demangler::parseLName(OutputBuffer *Demangled, const char *Mangled,
                                   unsigned long Len) {
   switch (Len) {
   case 6:
+    if (strncmp(Mangled, "__ctor", Len) == 0) {
+      // Constructor symbol for a class/struct.
+      *Demangled << "this";
+      Mangled += Len;
+      return Mangled;
+    }
+    if (strncmp(Mangled, "__dtor", Len) == 0) {
+      // Destructor symbol for a class/struct.
+      *Demangled << "~this";
+      Mangled += Len;
+      return Mangled;
+    }
     if (strncmp(Mangled, "__initZ", Len + 1) == 0) {
       // The static initializer for a given symbol.
       Demangled->prepend("initializer for ");
@@ -1049,6 +1165,15 @@ const char *Demangler::parseLName(OutputBuffer *Demangled, const char *Mangled,
       Demangled->prepend("ClassInfo for ");
       Demangled->setCurrentPosition(Demangled->getCurrentPosition() - 1);
       Mangled += Len;
+      return Mangled;
+    }
+    break;
+
+  case 10:
+    if (strncmp(Mangled, "__postblitMFZ", Len + 3) == 0) {
+      // Postblit symbol for a struct.
+      *Demangled << "this(this)";
+      Mangled += Len + 3;
       return Mangled;
     }
     break;
