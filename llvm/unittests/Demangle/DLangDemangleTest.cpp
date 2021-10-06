@@ -51,4 +51,6 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle1ii", "demangle.i"),
         std::make_pair("_D8demangle2siOi", "demangle.si"),
         std::make_pair("_D8demangle1re", "demangle.r"),
-        std::make_pair("_D8demangle1iinvalidtypeseq", nullptr)));
+        std::make_pair("_D8demangle1iinvalidtypeseq", nullptr),
+        std::make_pair("_D8demangle3ABCQeQg1ai", "demangle.ABC.ABC.ABC.a"),
+        std::make_pair("_D8demangle3ABCQeQaaaa1ai", nullptr)));
