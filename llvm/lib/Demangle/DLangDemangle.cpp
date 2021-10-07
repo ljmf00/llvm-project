@@ -311,6 +311,34 @@ private:
   const char *parseTemplate(OutputBuffer *Demangled, const char *Mangled,
                             unsigned long Len = -1);
 
+  /// Extract and demangle an integer value from a given mangled symbol append
+  /// it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  /// \param Type mangled type character in which the type should be
+  ///             represented as.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseInteger(OutputBuffer *Demangled, const char *Mangled,
+                           char Type);
+
+  /// Extract and demangle any value from a given mangled symbol append it to
+  /// the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  /// \param Type mangled type character in which the type should be
+  ///             represented as, if needed.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseValue(OutputBuffer *Demangled, const char *Mangled,
+                         char Type);
+
   /// The string we are demangling.
   const char *Str;
   /// The index of the last back reference.
@@ -1395,8 +1423,38 @@ const char *Demangler::parseTemplateArgs(OutputBuffer *Demangled,
       ++Mangled;
       Mangled = parseType(Demangled, Mangled);
       break;
+    case 'V': // Value parameter.
+    {
+      OutputBuffer Name;
+      char Type;
 
-      // TODO: Parse value literals
+      // Peek at the type.
+      ++Mangled;
+      Type = *Mangled;
+
+      if (Type == 'Q') {
+        // Value type is a back reference, peek at the real type.
+        const char *Backref;
+        if (decodeBackref(Mangled, &Backref) == nullptr)
+          return nullptr;
+
+        Type = *Backref;
+      }
+
+      // In the few instances where the type is actually desired in
+      // the output, it should precede the value from dlang_value.
+      Name = OutputBuffer();
+      if (!initializeOutputBuffer(nullptr, nullptr, Name, 32))
+        return nullptr;
+
+      Mangled = parseType(&Name, Mangled);
+      Name << '\0';
+      Name.setCurrentPosition(Name.getCurrentPosition() - 1);
+
+      Mangled = parseValue(Demangled, Mangled, Type);
+      std::free(Name.getBuffer());
+      break;
+    }
 
     case 'X': // Externally mangled parameter.
     {
@@ -1458,6 +1516,141 @@ const char *Demangler::parseTemplate(OutputBuffer *Demangled,
   // Check for template name length mismatch.
   if (Len != -1UL && Mangled && (unsigned long)(Mangled - Start) != Len)
     return nullptr;
+
+  return Mangled;
+}
+
+const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
+                                  char Type) {
+  if (Mangled == nullptr || *Mangled == '\0')
+    return nullptr;
+
+  switch (*Mangled) {
+  // Integral values.
+  case 'N':
+    ++Mangled;
+    *Demangled << '-';
+    Mangled = parseInteger(Demangled, Mangled, Type);
+    break;
+
+  case 'i':
+    ++Mangled;
+
+    [[clang::fallthrough]];
+    // There really should always be an `i' before encoded numbers, but there
+    // wasn't in early versions of D2, so this case range must remain for
+    // backwards compatibility.
+  case '0':
+  case '1':
+  case '2':
+  case '3':
+  case '4':
+  case '5':
+  case '6':
+  case '7':
+  case '8':
+  case '9':
+    Mangled = parseInteger(Demangled, Mangled, Type);
+    break;
+
+  default:
+    return nullptr;
+  }
+
+  return Mangled;
+}
+
+const char *Demangler::parseInteger(OutputBuffer *Demangled,
+                                    const char *Mangled, char Type) {
+  if (Type == 'a' || Type == 'u' || Type == 'w') {
+    // Parse character value
+    char Value[20];
+    int Pos = sizeof(Value);
+    int Width = 0;
+    unsigned long Val;
+
+    Mangled = decodeNumber(Mangled, &Val);
+    if (Mangled == nullptr)
+      return nullptr;
+
+    *Demangled << '\'';
+
+    if (Type == 'a' && Val >= 0x20 && Val < 0x7F) {
+      // Represent as a character literal
+      *Demangled << static_cast<char>(Val);
+    } else {
+      // Represent as a hexadecimal value
+      switch (Type) {
+      case 'a': // char
+        *Demangled << "\\x";
+        Width = 2;
+        break;
+      case 'u': // wchar
+        *Demangled << "\\u";
+        Width = 4;
+        break;
+      case 'w': // dchar
+        *Demangled << "\\U";
+        Width = 8;
+        break;
+      }
+
+      while (Val > 0) {
+        int Digit = Val % 16;
+
+        if (Digit < 10)
+          Value[--Pos] = (char)(Digit + '0');
+        else
+          Value[--Pos] = (char)((Digit - 10) + 'a');
+
+        Val /= 16;
+        Width--;
+      }
+
+      for (; Width > 0; Width--)
+        Value[--Pos] = '0';
+
+      *Demangled << StringView(&(Value[Pos]), sizeof(Value) - Pos);
+    }
+    *Demangled << '\'';
+  } else if (Type == 'b') {
+    // Parse boolean value
+    unsigned long Val;
+
+    Mangled = decodeNumber(Mangled, &Val);
+    if (Mangled == nullptr)
+      return nullptr;
+
+    *Demangled << (Val ? "true" : "false");
+  } else {
+    // Parse integer value
+    const char *NumPtr = Mangled;
+    size_t Num = 0;
+
+    if (!std::isdigit(*Mangled))
+      return nullptr;
+
+    while (std::isdigit(*Mangled)) {
+      ++Num;
+      ++Mangled;
+    }
+    *Demangled << StringView(NumPtr, Num);
+
+    // Append suffix
+    switch (Type) {
+    case 'h': // ubyte
+    case 't': // ushort
+    case 'k': // uint
+      *Demangled << 'u';
+      break;
+    case 'l': // long
+      *Demangled << 'L';
+      break;
+    case 'm': // ulong
+      *Demangled << "uL";
+      break;
+    }
+  }
 
   return Mangled;
 }
