@@ -325,6 +325,17 @@ private:
   const char *parseInteger(OutputBuffer *Demangled, const char *Mangled,
                            char Type);
 
+  /// Extract and demangle a floating-point value from a given mangled symbol
+  /// append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseReal(OutputBuffer *Demangled, const char *Mangled);
+
   /// Extract and demangle any value from a given mangled symbol append it to
   /// the output string.
   ///
@@ -1553,6 +1564,24 @@ const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
     Mangled = parseInteger(Demangled, Mangled, Type);
     break;
 
+  // Real value.
+  case 'e':
+    ++Mangled;
+    Mangled = parseReal(Demangled, Mangled);
+    break;
+
+  // Complex value.
+  case 'c':
+    ++Mangled;
+    Mangled = parseReal(Demangled, Mangled);
+    *Demangled << '+';
+    if (Mangled == nullptr || *Mangled != 'c')
+      return nullptr;
+    ++Mangled;
+    Mangled = parseReal(Demangled, Mangled);
+    *Demangled << 'i';
+    break;
+
   default:
     return nullptr;
   }
@@ -1650,6 +1679,66 @@ const char *Demangler::parseInteger(OutputBuffer *Demangled,
       *Demangled << "uL";
       break;
     }
+  }
+
+  return Mangled;
+}
+
+const char *Demangler::parseReal(OutputBuffer *Demangled, const char *Mangled) {
+  // Handle NAN and +-INF.
+  if (strncmp(Mangled, "NAN", 3) == 0) {
+    *Demangled << "NaN";
+    Mangled += 3;
+    return Mangled;
+  }
+
+  if (strncmp(Mangled, "INF", 3) == 0) {
+    *Demangled << "Inf";
+    Mangled += 3;
+    return Mangled;
+  }
+
+  if (strncmp(Mangled, "NINF", 4) == 0) {
+    *Demangled << "-Inf";
+    Mangled += 4;
+    return Mangled;
+  }
+
+  // Hexadecimal prefix and leading bit.
+  if (*Mangled == 'N') {
+    *Demangled << '-';
+    ++Mangled;
+  }
+
+  if (!std::isxdigit(*Mangled))
+    return nullptr;
+
+  *Demangled << "0x";
+  *Demangled << StringView(Mangled, 1);
+  *Demangled << '.';
+  ++Mangled;
+
+  // Significand.
+  while (std::isxdigit(*Mangled)) {
+    *Demangled << StringView(Mangled, 1);
+    ++Mangled;
+  }
+
+  // Exponent.
+  if (*Mangled != 'P')
+    return nullptr;
+
+  *Demangled << 'p';
+  ++Mangled;
+
+  if (*Mangled == 'N') {
+    *Demangled << '-';
+    ++Mangled;
+  }
+
+  while (std::isdigit(*Mangled)) {
+    *Demangled << StringView(Mangled, 1);
+    ++Mangled;
   }
 
   return Mangled;

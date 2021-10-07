@@ -392,4 +392,37 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle16__T4testVui1000Zv",
                        "demangle.test!('\\u03e8')"),
         std::make_pair("_D8demangle18__T4testVwi100000Zv",
-                       "demangle.test!('\\U000186a0')")));
+                       "demangle.test!('\\U000186a0')"),
+        std::make_pair("_D8demangle17__T4testVde0A8P6Zv",
+                       "demangle.test!(0x0.A8p6)"),
+        std::make_pair("_D8demangle16__T4testVdeA8P2Zv",
+                       "demangle.test!(0xA.8p2)"),
+        std::make_pair("_D8demangle18__T4testVdeN0A8P6Zv",
+                       "demangle.test!(-0x0.A8p6)"),
+        std::make_pair("_D8demangle31__T4testVde0F6E978D4FDF3B646P7Zv",
+                       "demangle.test!(0x0.F6E978D4FDF3B646p7)"),
+        std::make_pair("_D8demangle15__T4testVdeNANZv", "demangle.test!(NaN)"),
+        std::make_pair("_D8demangle15__T4testVdeINFZv", "demangle.test!(Inf)"),
+        std::make_pair("_D8demangle16__T4testVdeNINFZv",
+                       "demangle.test!(-Inf)"),
+        std::make_pair("_D8demangle23__T4testVfe0FFFFFFP128Zv",
+                       "demangle.test!(0x0.FFFFFFp128)"),
+        std::make_pair("_D8demangle32__T4testVde0FFFFFFFFFFFFF8P1024Zv",
+                       "demangle.test!(0x0.FFFFFFFFFFFFF8p1024)"),
+        std::make_pair("_D8demangle19__T4testVfe08PN125Zv",
+                       "demangle.test!(0x0.8p-125)"),
+        std::make_pair("_D8demangle20__T4testVde08PN1021Zv",
+                       "demangle.test!(0x0.8p-1021)"),
+        std::make_pair(
+            "_D8demangle51__T4testVrc0C4CCCCCCCCCCCCCDP4c0B666666666666666P6Zv",
+            "demangle.test!(0x0.C4CCCCCCCCCCCCCDp4+0x0.B666666666666666p6i)"),
+        std::make_pair(
+            "_D8demangle52__"
+            "T4testVrcN0C4CCCCCCCCCCCCCDP4c0B666666666666666P6Zv",
+            "demangle.test!(-0x0.C4CCCCCCCCCCCCCDp4+0x0.B666666666666666p6i)"),
+        std::make_pair("_D8demangle91__"
+                       "T4testVde000111222333444555666777888999AAABBBCCCDDDEEEF"
+                       "FFP000111222333444555666777888999Zv",
+                       "demangle.test!(0x0."
+                       "00111222333444555666777888999AAABBBCCCDDDEEEFFFp0001112"
+                       "22333444555666777888999)")));
