@@ -425,4 +425,14 @@ INSTANTIATE_TEST_SUITE_P(
                        "FFP000111222333444555666777888999Zv",
                        "demangle.test!(0x0."
                        "00111222333444555666777888999AAABBBCCCDDDEEEFFFp0001112"
-                       "22333444555666777888999)")));
+                       "22333444555666777888999)"),
+        std::make_pair("_D8demangle22__T4testVG3ua3_616263Zv",
+                           "demangle.test!(\"abc\")"),
+        std::make_pair("_D8demangle22__T4testVG3ud3_616263Zv",
+                       "demangle.test!(\"abc\"d)"),
+        std::make_pair("_D8demangle22__T4testVG3uw3_616263Zv",
+                       "demangle.test!(\"abc\"w)"),
+        std::make_pair("_D8demangle16__T4testVAyaa0_Zv",
+                       "demangle.test!(\"\")"),
+        std::make_pair("_D8demangle32__T4testVAyaa8_20090a0d0c0b00ffZv",
+                       "demangle.test!(\" \\t\\n\\r\\f\\v\\x00\\xff\")")));

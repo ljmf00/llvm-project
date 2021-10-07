@@ -70,6 +70,16 @@ private:
   /// \see https://dlang.org/spec/abi.html#Number .
   const char *decodeNumber(const char *Mangled, unsigned long *Ret);
 
+  /// Extract the hex-digit from a given string.
+  ///
+  /// \param Mangled string to extract the hex-digit.
+  /// \param Ret assigned result value.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#HexDigits .
+  const char *decodeHexdigit(const char *Mangled, char *Ret);
+
   /// Extract the back reference position from a given string.
   ///
   /// \param Mangled string to extract the back reference position.
@@ -325,6 +335,17 @@ private:
   const char *parseInteger(OutputBuffer *Demangled, const char *Mangled,
                            char Type);
 
+  /// Extract and demangle a string value from a given mangled symbol append it
+  /// to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseString(OutputBuffer *Demangled, const char *Mangled);
+
   /// Extract and demangle a floating-point value from a given mangled symbol
   /// append it to the output string.
   ///
@@ -380,6 +401,31 @@ const char *Demangler::decodeNumber(const char *Mangled, unsigned long *Ret) {
     return nullptr;
 
   *Ret = Val;
+  return Mangled;
+}
+
+const char *Demangler::decodeHexdigit(const char *Mangled, char *Ret) {
+  char C;
+
+  // Return nullptr if trying to extract something that isn't a hexdigit
+  if (Mangled == nullptr || !std::isxdigit(Mangled[0]) ||
+      !std::isxdigit(Mangled[1]))
+    return nullptr;
+
+  C = Mangled[0];
+  if (!std::isdigit(C))
+    *Ret = C - (std::isupper(C) ? 'A' : 'a') + 10;
+  else
+    *Ret = C - '0';
+
+  C = Mangled[1];
+  if (!std::isdigit(C))
+    *Ret = (*Ret << 4) | (C - (std::isupper(C) ? 'A' : 'a') + 10);
+  else
+    *Ret = (*Ret << 4) | (C - '0');
+
+  Mangled += 2;
+
   return Mangled;
 }
 
@@ -1582,9 +1628,75 @@ const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
     *Demangled << 'i';
     break;
 
+  // String values.
+  case 'a': // UTF8
+  case 'w': // UTF16
+  case 'd': // UTF32
+    Mangled = parseString(Demangled, Mangled);
+    break;
+
   default:
     return nullptr;
   }
+
+  return Mangled;
+}
+
+const char *Demangler::parseString(OutputBuffer *Demangled,
+                                   const char *Mangled) {
+  char Type = *Mangled;
+  unsigned long Len;
+
+  ++Mangled;
+  Mangled = decodeNumber(Mangled, &Len);
+  if (Mangled == nullptr || *Mangled != '_')
+    return nullptr;
+
+  ++Mangled;
+  *Demangled << '\"';
+  while (Len--) {
+    char Val;
+    const char *Endptr = decodeHexdigit(Mangled, &Val);
+
+    if (Endptr == nullptr)
+      return nullptr;
+
+    // Sanitize white and non-printable characters.
+    switch (Val) {
+    case ' ':
+      *Demangled << ' ';
+      break;
+    case '\t':
+      *Demangled << "\\t";
+      break;
+    case '\n':
+      *Demangled << "\\n";
+      break;
+    case '\r':
+      *Demangled << "\\r";
+      break;
+    case '\f':
+      *Demangled << "\\f";
+      break;
+    case '\v':
+      *Demangled << "\\v";
+      break;
+
+    default:
+      if (std::isprint(Val))
+        *Demangled << Val;
+      else {
+        *Demangled << "\\x";
+        *Demangled << StringView(Mangled, 2);
+      }
+    }
+
+    Mangled = Endptr;
+  }
+  *Demangled << '\"';
+
+  if (Type != 'a')
+    *Demangled << Type;
 
   return Mangled;
 }
