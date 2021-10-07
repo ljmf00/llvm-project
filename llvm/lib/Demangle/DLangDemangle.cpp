@@ -110,12 +110,15 @@ private:
   ///
   /// \param Demangled output buffer to write the demangled name.
   /// \param Mangled mangled symbol to be demangled.
+  /// \param IsFunction whether the backreferenced type is expected to be a
+  ///                   function.
   ///
   /// \return the remaining string on success or nullptr on failure.
   ///
   /// \see https://dlang.org/spec/abi.html#back_ref .
   /// \see https://dlang.org/spec/abi.html#TypeBackRef .
-  const char *parseTypeBackref(OutputBuffer *Demangled, const char *Mangled);
+  const char *parseTypeBackref(OutputBuffer *Demangled, const char *Mangled,
+                               bool IsFunction);
 
   /// Extract and demangle calling convention from a given mangled symbol and
   /// append it to the output string.
@@ -393,7 +396,7 @@ const char *Demangler::parseSymbolBackref(OutputBuffer *Demangled,
 }
 
 const char *Demangler::parseTypeBackref(OutputBuffer *Demangled,
-                                        const char *Mangled) {
+                                        const char *Mangled, bool IsFunction) {
   // A type back reference always points to a letter.
   //    TypeBackRef:
   //        Q NumberBackRef
@@ -411,8 +414,11 @@ const char *Demangler::parseTypeBackref(OutputBuffer *Demangled,
   // Get position of the back reference.
   Mangled = decodeBackref(Mangled, &Backref);
 
-  // TODO: Add support for function type back references.
-  Backref = parseType(Demangled, Backref);
+  // Must point to a type.
+  if (IsFunction)
+    Backref = parseFunctionType(Demangled, Backref);
+  else
+    Backref = parseType(Demangled, Backref);
 
   LastBackref = SaveRefPos;
 
@@ -1004,7 +1010,30 @@ const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
     ++Mangled;
     return parseQualified(Demangled, Mangled, false);
 
-    // TODO: Parse delegate types.
+  case 'D': // delegate T
+  {
+    OutputBuffer Mods;
+    if (!initializeOutputBuffer(nullptr, nullptr, Mods, 32))
+      return nullptr;
+
+    size_t Szmods;
+    ++Mangled;
+
+    Mangled = parseTypeModifiers(&Mods, Mangled);
+    Szmods = Mods.getCurrentPosition();
+
+    // Back referenced function type.
+    if (Mangled && *Mangled == 'Q')
+      Mangled = parseTypeBackref(Demangled, Mangled, true);
+    else
+      Mangled = parseFunctionType(Demangled, Mangled);
+
+    *Demangled << "delegate";
+    *Demangled << StringView(Mods.getBuffer(), Szmods);
+
+    std::free(Mods.getBuffer());
+    return Mangled;
+  }
 
   case 'B': // tuple T
     ++Mangled;
@@ -1134,7 +1163,7 @@ const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
 
   // Back referenced type.
   case 'Q':
-    return parseTypeBackref(Demangled, Mangled);
+    return parseTypeBackref(Demangled, Mangled, false);
 
   default: // unhandled.
     return nullptr;
