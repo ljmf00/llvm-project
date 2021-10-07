@@ -178,4 +178,12 @@ INSTANTIATE_TEST_SUITE_P(
                        "demangle.test(char, char, ...)"),
         std::make_pair("_D8demangle4testFXv", "demangle.test(...)"),
         std::make_pair("_D8demangle4testFYv", "demangle.test(, ...)"),
-        std::make_pair("_D8demangle4testFaaZv", "demangle.test(char, char)")));
+        std::make_pair("_D8demangle4testFaaZv", "demangle.test(char, char)"),
+        std::make_pair("_D8demangle4testFB0Zv", "demangle.test(tuple())"),
+        std::make_pair("_D8demangle4testFB1aZv", "demangle.test(tuple(char))"),
+        std::make_pair("_D8demangle4testFB2aaZv",
+                       "demangle.test(tuple(char, char))"),
+        std::make_pair("_D8demangle4testFB3aaaZv",
+                       "demangle.test(tuple(char, char, char))"),
+        std::make_pair("_D8demangle4testFB2OaaZv",
+                       "demangle.test(tuple(shared(char), char))")));

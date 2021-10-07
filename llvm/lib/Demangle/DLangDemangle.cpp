@@ -261,6 +261,17 @@ private:
   /// \see https://dlang.org/spec/abi.html#TypeModifiers .
   const char *parseTypeModifiers(OutputBuffer *Demangled, const char *Mangled);
 
+  /// Extract and demangle a tuple value from a given mangled symbol append it
+  /// to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#TypeTuple .
+  const char *parseTuple(OutputBuffer *Demangled, const char *Mangled);
+
   /// The string we are demangling.
   const char *Str;
   /// The index of the last back reference.
@@ -993,8 +1004,11 @@ const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
     ++Mangled;
     return parseQualified(Demangled, Mangled, false);
 
-  // TODO: Parse delegate types.
-  // TODO: Parse tuple types.
+    // TODO: Parse delegate types.
+
+  case 'B': // tuple T
+    ++Mangled;
+    return parseTuple(Demangled, Mangled);
 
   // Basic types.
   case 'n':
@@ -1125,6 +1139,29 @@ const char *Demangler::parseType(OutputBuffer *Demangled, const char *Mangled) {
   default: // unhandled.
     return nullptr;
   }
+}
+
+const char *Demangler::parseTuple(OutputBuffer *Demangled,
+                                  const char *Mangled) {
+  unsigned long Elements;
+
+  Mangled = decodeNumber(Mangled, &Elements);
+  if (Mangled == nullptr)
+    return nullptr;
+
+  *Demangled << "tuple(";
+
+  while (Elements--) {
+    Mangled = parseType(Demangled, Mangled);
+    if (Mangled == nullptr)
+      return nullptr;
+
+    if (Elements != 0)
+      *Demangled << ", ";
+  }
+
+  *Demangled << ')';
+  return Mangled;
 }
 
 const char *Demangler::parseLName(OutputBuffer *Demangled, const char *Mangled,
