@@ -335,6 +335,19 @@ private:
   const char *parseInteger(OutputBuffer *Demangled, const char *Mangled,
                            char Type);
 
+  /// Extract and demangle an struct literal value from a given mangled symbol
+  /// append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  /// \param Name demangled symbol name of the struct literal.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseStructLiteral(OutputBuffer *Demangled, const char *Mangled,
+                                 const char *Name);
+
   /// Extract and demangle an array literal value from a given mangled symbol
   /// append it to the output string.
   ///
@@ -384,6 +397,7 @@ private:
   ///
   /// \param Demangled output buffer to write the demangled name.
   /// \param Mangled mangled symbol to be demangled.
+  /// \param Name demangled symbol name of the type, if needed.
   /// \param Type mangled type character in which the type should be
   ///             represented as, if needed.
   ///
@@ -391,7 +405,7 @@ private:
   ///
   /// \see https://dlang.org/spec/abi.html#Value .
   const char *parseValue(OutputBuffer *Demangled, const char *Mangled,
-                         char Type);
+                         const char *Name, char Type);
 
   /// The string we are demangling.
   const char *Str;
@@ -1530,7 +1544,7 @@ const char *Demangler::parseTemplateArgs(OutputBuffer *Demangled,
       Name << '\0';
       Name.setCurrentPosition(Name.getCurrentPosition() - 1);
 
-      Mangled = parseValue(Demangled, Mangled, Type);
+      Mangled = parseValue(Demangled, Mangled, Name.getBuffer(), Type);
       std::free(Name.getBuffer());
       break;
     }
@@ -1600,7 +1614,7 @@ const char *Demangler::parseTemplate(OutputBuffer *Demangled,
 }
 
 const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
-                                  char Type) {
+                                  const char *Name, char Type) {
   if (Mangled == nullptr || *Mangled == '\0')
     return nullptr;
 
@@ -1666,10 +1680,42 @@ const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
       Mangled = parseArrayLiteral(Demangled, Mangled);
     break;
 
+  // Struct values.
+  case 'S':
+    ++Mangled;
+    Mangled = parseStructLiteral(Demangled, Mangled, Name);
+    break;
+
   default:
     return nullptr;
   }
 
+  return Mangled;
+}
+
+const char *Demangler::parseStructLiteral(OutputBuffer *Demangled,
+                                          const char *Mangled,
+                                          const char *Name) {
+  unsigned long Args;
+
+  Mangled = decodeNumber(Mangled, &Args);
+  if (Mangled == nullptr)
+    return nullptr;
+
+  if (Name != nullptr)
+    *Demangled << Name;
+
+  *Demangled << '(';
+  while (Args--) {
+    Mangled = parseValue(Demangled, Mangled, nullptr, '\0');
+    if (Mangled == nullptr)
+      return nullptr;
+
+    if (Args != 0)
+      *Demangled << ", ";
+  }
+
+  *Demangled << ')';
   return Mangled;
 }
 
@@ -1897,7 +1943,7 @@ const char *Demangler::parseArrayLiteral(OutputBuffer *Demangled,
 
   *Demangled << '[';
   while (Elements--) {
-    Mangled = parseValue(Demangled, Mangled, '\0');
+    Mangled = parseValue(Demangled, Mangled, nullptr, '\0');
     if (Mangled == nullptr)
       return nullptr;
 
@@ -1919,12 +1965,12 @@ const char *Demangler::parseAssocArray(OutputBuffer *Demangled,
 
   *Demangled << '[';
   while (Elements--) {
-    Mangled = parseValue(Demangled, Mangled, '\0');
+    Mangled = parseValue(Demangled, Mangled, nullptr, '\0');
     if (Mangled == nullptr)
       return nullptr;
 
     *Demangled << ':';
-    Mangled = parseValue(Demangled, Mangled, '\0');
+    Mangled = parseValue(Demangled, Mangled, nullptr, '\0');
     if (Mangled == nullptr)
       return nullptr;
 
