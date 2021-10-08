@@ -447,4 +447,7 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle28__T4testVS8demangle1SS2i1i2Zv",
                        "demangle.test!(demangle.S(1, 2))"),
         std::make_pair("_D8demangle35__T4testVS8demangle1SS2i1a3_616263Zv",
-                       "demangle.test!(demangle.S(1, \"abc\"))")));
+                       "demangle.test!(demangle.S(1, \"abc\"))"),
+        std::make_pair("_D8demangle13__T4testVPinZv", "demangle.test!(null)"),
+        std::make_pair("_D8demangle__T3abcS_DQt10__lambda13FNaNbNiNfZiZQBhFZi",
+                       "demangle.abc!(demangle.__lambda13()).abc()")));

@@ -1619,6 +1619,12 @@ const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
     return nullptr;
 
   switch (*Mangled) {
+  // Null value.
+  case 'n':
+    ++Mangled;
+    *Demangled << "null";
+    break;
+
   // Integral values.
   case 'N':
     ++Mangled;
@@ -1684,6 +1690,14 @@ const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
   case 'S':
     ++Mangled;
     Mangled = parseStructLiteral(Demangled, Mangled, Name);
+    break;
+
+  // Function literal symbol.
+  case 'f':
+    ++Mangled;
+    if (strncmp(Mangled, "_D", 2) != 0 || !isSymbolName(Mangled + 2))
+      return nullptr;
+    Mangled = parseMangle(Demangled, Mangled);
     break;
 
   default:
