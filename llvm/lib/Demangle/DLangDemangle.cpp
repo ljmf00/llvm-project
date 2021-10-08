@@ -335,6 +335,28 @@ private:
   const char *parseInteger(OutputBuffer *Demangled, const char *Mangled,
                            char Type);
 
+  /// Extract and demangle an array literal value from a given mangled symbol
+  /// append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseArrayLiteral(OutputBuffer *Demangled, const char *Mangled);
+
+  /// Extract and demangle an associative array value from a given mangled
+  /// symbol append it to the output string.
+  ///
+  /// \param Demangled output buffer to write the demangled name.
+  /// \param Mangled mangled symbol to be demangled.
+  ///
+  /// \return the remaining string on success or nullptr on failure.
+  ///
+  /// \see https://dlang.org/spec/abi.html#Value .
+  const char *parseAssocArray(OutputBuffer *Demangled, const char *Mangled);
+
   /// Extract and demangle a string value from a given mangled symbol append it
   /// to the output string.
   ///
@@ -1635,6 +1657,15 @@ const char *Demangler::parseValue(OutputBuffer *Demangled, const char *Mangled,
     Mangled = parseString(Demangled, Mangled);
     break;
 
+  // Array values.
+  case 'A':
+    ++Mangled;
+    if (Type == 'H')
+      Mangled = parseAssocArray(Demangled, Mangled);
+    else
+      Mangled = parseArrayLiteral(Demangled, Mangled);
+    break;
+
   default:
     return nullptr;
   }
@@ -1853,6 +1884,55 @@ const char *Demangler::parseReal(OutputBuffer *Demangled, const char *Mangled) {
     ++Mangled;
   }
 
+  return Mangled;
+}
+
+const char *Demangler::parseArrayLiteral(OutputBuffer *Demangled,
+                                         const char *Mangled) {
+  unsigned long Elements;
+
+  Mangled = decodeNumber(Mangled, &Elements);
+  if (Mangled == nullptr)
+    return nullptr;
+
+  *Demangled << '[';
+  while (Elements--) {
+    Mangled = parseValue(Demangled, Mangled, '\0');
+    if (Mangled == nullptr)
+      return nullptr;
+
+    if (Elements != 0)
+      *Demangled << ", ";
+  }
+
+  *Demangled << ']';
+  return Mangled;
+}
+
+const char *Demangler::parseAssocArray(OutputBuffer *Demangled,
+                                       const char *Mangled) {
+  unsigned long Elements;
+
+  Mangled = decodeNumber(Mangled, &Elements);
+  if (Mangled == nullptr)
+    return nullptr;
+
+  *Demangled << '[';
+  while (Elements--) {
+    Mangled = parseValue(Demangled, Mangled, '\0');
+    if (Mangled == nullptr)
+      return nullptr;
+
+    *Demangled << ':';
+    Mangled = parseValue(Demangled, Mangled, '\0');
+    if (Mangled == nullptr)
+      return nullptr;
+
+    if (Elements != 0)
+      *Demangled << ", ";
+  }
+
+  *Demangled << ']';
   return Mangled;
 }
 

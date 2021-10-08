@@ -435,4 +435,12 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_pair("_D8demangle16__T4testVAyaa0_Zv",
                        "demangle.test!(\"\")"),
         std::make_pair("_D8demangle32__T4testVAyaa8_20090a0d0c0b00ffZv",
-                       "demangle.test!(\" \\t\\n\\r\\f\\v\\x00\\xff\")")));
+                       "demangle.test!(\" \\t\\n\\r\\f\\v\\x00\\xff\")"),
+        std::make_pair("_D8demangle22__T4testVAiA4i1i2i3i4Zv",
+                       "demangle.test!([1, 2, 3, 4])"),
+        std::make_pair("_D8demangle25__T4testVAdA2e08P1eN08P1Zv",
+                       "demangle.test!([0x0.8p1, -0x0.8p1])"),
+        std::make_pair("_D8demangle23__T4testVHiiA2i1i2i3i4Zv",
+                       "demangle.test!([1:2, 3:4])"),
+        std::make_pair("_D8demangle39__T4testVHAxaiA2a3_616263i1a3_646566i2Zv",
+                       "demangle.test!([\"abc\":1, \"def\":2])")));
