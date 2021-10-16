@@ -14,6 +14,7 @@
 #define DEMANGLE_UTILITY_H
 
 #include "StringView.h"
+#include "llvm/Demangle/MicrosoftDemangleNodes.h"
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -90,6 +91,23 @@ public:
   OutputString &operator+=(char C) {
     grow(1);
     Buffer[CurrentPosition++] = C;
+    return *this;
+  }
+
+  OutputString prepend(StringView R)
+  {
+      char *TempBuffer;
+      size_t Size = R.size();
+
+    if (Size != 0) {
+      grow(Size);
+      for (TempBuffer = (Buffer + CurrentPosition) - 1; TempBuffer >= Buffer; --TempBuffer) {
+        TempBuffer[Size] = TempBuffer[0];
+      }
+      std::memcpy(Buffer, R.begin(), Size);
+      CurrentPosition += Size;
+    }
+
     return *this;
   }
 

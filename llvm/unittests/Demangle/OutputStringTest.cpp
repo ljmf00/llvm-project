@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Demangle/MicrosoftDemangleNodes.h"
 #include "llvm/Demangle/Utility.h"
 #include "gtest/gtest.h"
 #include <string>
@@ -58,4 +59,13 @@ TEST(OutputStringTest, Insert) {
   EXPECT_EQ("xabdefghicdy", toString(OS));
 
   std::free(OS.getBuffer());
+}
+
+TEST(OutputStringTest, Prepend)
+{
+  OutputString OS;
+
+  OS << "abc";
+  OS.prepend("def");
+  EXPECT_EQ("defabc", toString(OS));
 }
