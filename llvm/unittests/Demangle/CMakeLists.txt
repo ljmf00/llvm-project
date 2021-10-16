@@ -6,7 +6,7 @@ set(LLVM_LINK_COMPONENTS
 add_llvm_unittest(DemangleTests
   DemangleTest.cpp
   ItaniumDemangleTest.cpp
-  OutputStreamTest.cpp
+  OutputStringTest.cpp
   PartialDemangleTest.cpp
   RustDemangleTest.cpp
   StringViewTest.cpp

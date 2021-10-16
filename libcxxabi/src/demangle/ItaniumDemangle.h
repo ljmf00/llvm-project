@@ -276,19 +276,19 @@ public:
   // would construct an equivalent node.
   //template<typename Fn> void match(Fn F) const;
 
-  bool hasRHSComponent(OutputStream &S) const {
+  bool hasRHSComponent(OutputString &S) const {
     if (RHSComponentCache != Cache::Unknown)
       return RHSComponentCache == Cache::Yes;
     return hasRHSComponentSlow(S);
   }
 
-  bool hasArray(OutputStream &S) const {
+  bool hasArray(OutputString &S) const {
     if (ArrayCache != Cache::Unknown)
       return ArrayCache == Cache::Yes;
     return hasArraySlow(S);
   }
 
-  bool hasFunction(OutputStream &S) const {
+  bool hasFunction(OutputString &S) const {
     if (FunctionCache != Cache::Unknown)
       return FunctionCache == Cache::Yes;
     return hasFunctionSlow(S);
@@ -296,30 +296,30 @@ public:
 
   Kind getKind() const { return K; }
 
-  virtual bool hasRHSComponentSlow(OutputStream &) const { return false; }
-  virtual bool hasArraySlow(OutputStream &) const { return false; }
-  virtual bool hasFunctionSlow(OutputStream &) const { return false; }
+  virtual bool hasRHSComponentSlow(OutputString &) const { return false; }
+  virtual bool hasArraySlow(OutputString &) const { return false; }
+  virtual bool hasFunctionSlow(OutputString &) const { return false; }
 
   // Dig through "glue" nodes like ParameterPack and ForwardTemplateReference to
   // get at a node that actually represents some concrete syntax.
-  virtual const Node *getSyntaxNode(OutputStream &) const {
+  virtual const Node *getSyntaxNode(OutputString &) const {
     return this;
   }
 
-  void print(OutputStream &S) const {
+  void print(OutputString &S) const {
     printLeft(S);
     if (RHSComponentCache != Cache::No)
       printRight(S);
   }
 
-  // Print the "left" side of this Node into OutputStream.
-  virtual void printLeft(OutputStream &) const = 0;
+  // Print the "left" side of this Node into OutputString.
+  virtual void printLeft(OutputString &) const = 0;
 
   // Print the "right". This distinction is necessary to represent C++ types
   // that appear on the RHS of their subtype, such as arrays or functions.
   // Since most types don't have such a component, provide a default
   // implementation.
-  virtual void printRight(OutputStream &) const {}
+  virtual void printRight(OutputString &) const {}
 
   virtual StringView getBaseName() const { return StringView(); }
 
@@ -348,7 +348,7 @@ public:
 
   Node *operator[](size_t Idx) const { return Elements[Idx]; }
 
-  void printWithComma(OutputStream &S) const {
+  void printWithComma(OutputString &S) const {
     bool FirstElement = true;
     for (size_t Idx = 0; Idx != NumElements; ++Idx) {
       size_t BeforeComma = S.getCurrentPosition();
@@ -375,7 +375,7 @@ struct NodeArrayNode : Node {
 
   template<typename Fn> void match(Fn F) const { F(Array); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Array.printWithComma(S);
   }
 };
@@ -390,7 +390,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Prefix, Suffix); }
 
-  void printLeft(OutputStream &s) const override {
+  void printLeft(OutputString &s) const override {
     Prefix->print(s);
     s += " (";
     s += Suffix;
@@ -409,7 +409,7 @@ public:
 
   template <typename Fn> void match(Fn F) const { F(Ty, Ext, TA); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Ty->print(S);
     S += " ";
     S += Ext;
@@ -440,7 +440,7 @@ protected:
   const Qualifiers Quals;
   const Node *Child;
 
-  void printQuals(OutputStream &S) const {
+  void printQuals(OutputString &S) const {
     if (Quals & QualConst)
       S += " const";
     if (Quals & QualVolatile)
@@ -457,22 +457,22 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Child, Quals); }
 
-  bool hasRHSComponentSlow(OutputStream &S) const override {
+  bool hasRHSComponentSlow(OutputString &S) const override {
     return Child->hasRHSComponent(S);
   }
-  bool hasArraySlow(OutputStream &S) const override {
+  bool hasArraySlow(OutputString &S) const override {
     return Child->hasArray(S);
   }
-  bool hasFunctionSlow(OutputStream &S) const override {
+  bool hasFunctionSlow(OutputString &S) const override {
     return Child->hasFunction(S);
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Child->printLeft(S);
     printQuals(S);
   }
 
-  void printRight(OutputStream &S) const override { Child->printRight(S); }
+  void printRight(OutputString &S) const override { Child->printRight(S); }
 };
 
 class ConversionOperatorType final : public Node {
@@ -484,7 +484,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Ty); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "operator ";
     Ty->print(S);
   }
@@ -500,7 +500,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Ty, Postfix); }
 
-  void printLeft(OutputStream &s) const override {
+  void printLeft(OutputString &s) const override {
     Ty->printLeft(s);
     s += Postfix;
   }
@@ -517,7 +517,7 @@ public:
   StringView getName() const { return Name; }
   StringView getBaseName() const override { return Name; }
 
-  void printLeft(OutputStream &s) const override { s += Name; }
+  void printLeft(OutputString &s) const override { s += Name; }
 };
 
 class ElaboratedTypeSpefType : public Node {
@@ -529,7 +529,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Kind, Child); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += Kind;
     S += ' ';
     Child->print(S);
@@ -547,7 +547,7 @@ struct AbiTagAttr : Node {
 
   template<typename Fn> void match(Fn F) const { F(Base, Tag); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Base->printLeft(S);
     S += "[abi:";
     S += Tag;
@@ -563,7 +563,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Conditions); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += " [enable_if:";
     Conditions.printWithComma(S);
     S += ']';
@@ -587,7 +587,7 @@ public:
            static_cast<const NameType *>(Ty)->getName() == "objc_object";
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Ty->print(S);
     S += "<";
     S += Protocol;
@@ -605,11 +605,11 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Pointee); }
 
-  bool hasRHSComponentSlow(OutputStream &S) const override {
+  bool hasRHSComponentSlow(OutputString &S) const override {
     return Pointee->hasRHSComponent(S);
   }
 
-  void printLeft(OutputStream &s) const override {
+  void printLeft(OutputString &s) const override {
     // We rewrite objc_object<SomeProtocol>* into id<SomeProtocol>.
     if (Pointee->getKind() != KObjCProtoName ||
         !static_cast<const ObjCProtoName *>(Pointee)->isObjCObject()) {
@@ -627,7 +627,7 @@ public:
     }
   }
 
-  void printRight(OutputStream &s) const override {
+  void printRight(OutputString &s) const override {
     if (Pointee->getKind() != KObjCProtoName ||
         !static_cast<const ObjCProtoName *>(Pointee)->isObjCObject()) {
       if (Pointee->hasArray(s) || Pointee->hasFunction(s))
@@ -656,7 +656,7 @@ class ReferenceType : public Node {
   // A combination of a TemplateForwardReference and a back-ref Substitution
   // from an ill-formed string may have created a cycle; use cycle detection to
   // avoid looping forever.
-  std::pair<ReferenceKind, const Node *> collapse(OutputStream &S) const {
+  std::pair<ReferenceKind, const Node *> collapse(OutputString &S) const {
     auto SoFar = std::make_pair(RK, Pointee);
     // Track the chain of nodes for the Floyd's 'tortoise and hare'
     // cycle-detection algorithm, since getSyntaxNode(S) is impure
@@ -687,11 +687,11 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Pointee, RK); }
 
-  bool hasRHSComponentSlow(OutputStream &S) const override {
+  bool hasRHSComponentSlow(OutputString &S) const override {
     return Pointee->hasRHSComponent(S);
   }
 
-  void printLeft(OutputStream &s) const override {
+  void printLeft(OutputString &s) const override {
     if (Printing)
       return;
     SwapAndRestore<bool> SavePrinting(Printing, true);
@@ -706,7 +706,7 @@ public:
 
     s += (Collapsed.first == ReferenceKind::LValue ? "&" : "&&");
   }
-  void printRight(OutputStream &s) const override {
+  void printRight(OutputString &s) const override {
     if (Printing)
       return;
     SwapAndRestore<bool> SavePrinting(Printing, true);
@@ -730,11 +730,11 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(ClassType, MemberType); }
 
-  bool hasRHSComponentSlow(OutputStream &S) const override {
+  bool hasRHSComponentSlow(OutputString &S) const override {
     return MemberType->hasRHSComponent(S);
   }
 
-  void printLeft(OutputStream &s) const override {
+  void printLeft(OutputString &s) const override {
     MemberType->printLeft(s);
     if (MemberType->hasArray(s) || MemberType->hasFunction(s))
       s += "(";
@@ -744,7 +744,7 @@ public:
     s += "::*";
   }
 
-  void printRight(OutputStream &s) const override {
+  void printRight(OutputString &s) const override {
     if (MemberType->hasArray(s) || MemberType->hasFunction(s))
       s += ")";
     MemberType->printRight(s);
@@ -764,12 +764,12 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Base, Dimension); }
 
-  bool hasRHSComponentSlow(OutputStream &) const override { return true; }
-  bool hasArraySlow(OutputStream &) const override { return true; }
+  bool hasRHSComponentSlow(OutputString &) const override { return true; }
+  bool hasArraySlow(OutputString &) const override { return true; }
 
-  void printLeft(OutputStream &S) const override { Base->printLeft(S); }
+  void printLeft(OutputString &S) const override { Base->printLeft(S); }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     if (S.back() != ']')
       S += " ";
     S += "[";
@@ -800,8 +800,8 @@ public:
     F(Ret, Params, CVQuals, RefQual, ExceptionSpec);
   }
 
-  bool hasRHSComponentSlow(OutputStream &) const override { return true; }
-  bool hasFunctionSlow(OutputStream &) const override { return true; }
+  bool hasRHSComponentSlow(OutputString &) const override { return true; }
+  bool hasFunctionSlow(OutputString &) const override { return true; }
 
   // Handle C++'s ... quirky decl grammar by using the left & right
   // distinction. Consider:
@@ -810,12 +810,12 @@ public:
   // that takes a char and returns an int. If we're trying to print f, start
   // by printing out the return types's left, then print our parameters, then
   // finally print right of the return type.
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Ret->printLeft(S);
     S += " ";
   }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     S += "(";
     Params.printWithComma(S);
     S += ")";
@@ -847,7 +847,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(E); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "noexcept(";
     E->print(S);
     S += ")";
@@ -862,7 +862,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Types); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "throw(";
     Types.printWithComma(S);
     S += ')';
@@ -896,12 +896,12 @@ public:
   NodeArray getParams() const { return Params; }
   const Node *getReturnType() const { return Ret; }
 
-  bool hasRHSComponentSlow(OutputStream &) const override { return true; }
-  bool hasFunctionSlow(OutputStream &) const override { return true; }
+  bool hasRHSComponentSlow(OutputString &) const override { return true; }
+  bool hasFunctionSlow(OutputString &) const override { return true; }
 
   const Node *getName() const { return Name; }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (Ret) {
       Ret->printLeft(S);
       if (!Ret->hasRHSComponent(S))
@@ -910,7 +910,7 @@ public:
     Name->print(S);
   }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     S += "(";
     Params.printWithComma(S);
     S += ")";
@@ -943,7 +943,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(OpName); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "operator\"\" ";
     OpName->print(S);
   }
@@ -959,7 +959,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Special, Child); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += Special;
     Child->print(S);
   }
@@ -976,7 +976,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(FirstType, SecondType); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "construction vtable for ";
     FirstType->print(S);
     S += "-in-";
@@ -995,7 +995,7 @@ struct NestedName : Node {
 
   StringView getBaseName() const override { return Name->getBaseName(); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Qual->print(S);
     S += "::";
     Name->print(S);
@@ -1011,7 +1011,7 @@ struct LocalName : Node {
 
   template<typename Fn> void match(Fn F) const { F(Encoding, Entity); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Encoding->print(S);
     S += "::";
     Entity->print(S);
@@ -1031,7 +1031,7 @@ public:
 
   StringView getBaseName() const override { return Name->getBaseName(); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Qualifier->print(S);
     S += "::";
     Name->print(S);
@@ -1049,7 +1049,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(BaseType, Dimension); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     BaseType->print(S);
     S += " vector[";
     if (Dimension)
@@ -1067,7 +1067,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Dimension); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     // FIXME: This should demangle as "vector pixel".
     S += "pixel vector[";
     Dimension->print(S);
@@ -1084,7 +1084,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Dimension); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "_Float";
     Dimension->print(S);
   }
@@ -1108,7 +1108,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Kind, Index); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     switch (Kind) {
     case TemplateParamKind::Type:
       S += "$T";
@@ -1135,11 +1135,11 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Name); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "typename ";
   }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     Name->print(S);
   }
 };
@@ -1155,13 +1155,13 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Name, Type); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Type->printLeft(S);
     if (!Type->hasRHSComponent(S))
       S += " ";
   }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     Name->print(S);
     Type->printRight(S);
   }
@@ -1180,13 +1180,13 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Name, Params); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "template<";
     Params.printWithComma(S);
     S += "> typename ";
   }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     Name->print(S);
   }
 };
@@ -1201,12 +1201,12 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Param); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Param->printLeft(S);
     S += "...";
   }
 
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     Param->printRight(S);
   }
 };
@@ -1222,8 +1222,8 @@ public:
 class ParameterPack final : public Node {
   NodeArray Data;
 
-  // Setup OutputStream for a pack expansion unless we're already expanding one.
-  void initializePackExpansion(OutputStream &S) const {
+  // Setup OutputString for a pack expansion unless we're already expanding one.
+  void initializePackExpansion(OutputString &S) const {
     if (S.CurrentPackMax == std::numeric_limits<unsigned>::max()) {
       S.CurrentPackMax = static_cast<unsigned>(Data.size());
       S.CurrentPackIndex = 0;
@@ -1249,34 +1249,34 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Data); }
 
-  bool hasRHSComponentSlow(OutputStream &S) const override {
+  bool hasRHSComponentSlow(OutputString &S) const override {
     initializePackExpansion(S);
     size_t Idx = S.CurrentPackIndex;
     return Idx < Data.size() && Data[Idx]->hasRHSComponent(S);
   }
-  bool hasArraySlow(OutputStream &S) const override {
+  bool hasArraySlow(OutputString &S) const override {
     initializePackExpansion(S);
     size_t Idx = S.CurrentPackIndex;
     return Idx < Data.size() && Data[Idx]->hasArray(S);
   }
-  bool hasFunctionSlow(OutputStream &S) const override {
+  bool hasFunctionSlow(OutputString &S) const override {
     initializePackExpansion(S);
     size_t Idx = S.CurrentPackIndex;
     return Idx < Data.size() && Data[Idx]->hasFunction(S);
   }
-  const Node *getSyntaxNode(OutputStream &S) const override {
+  const Node *getSyntaxNode(OutputString &S) const override {
     initializePackExpansion(S);
     size_t Idx = S.CurrentPackIndex;
     return Idx < Data.size() ? Data[Idx]->getSyntaxNode(S) : this;
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     initializePackExpansion(S);
     size_t Idx = S.CurrentPackIndex;
     if (Idx < Data.size())
       Data[Idx]->printLeft(S);
   }
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     initializePackExpansion(S);
     size_t Idx = S.CurrentPackIndex;
     if (Idx < Data.size())
@@ -1299,7 +1299,7 @@ public:
 
   NodeArray getElements() const { return Elements; }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Elements.printWithComma(S);
   }
 };
@@ -1317,7 +1317,7 @@ public:
 
   const Node *getChild() const { return Child; }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     constexpr unsigned Max = std::numeric_limits<unsigned>::max();
     SwapAndRestore<unsigned> SavePackIdx(S.CurrentPackIndex, Max);
     SwapAndRestore<unsigned> SavePackMax(S.CurrentPackMax, Max);
@@ -1360,7 +1360,7 @@ public:
 
   NodeArray getParams() { return Params; }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "<";
     Params.printWithComma(S);
     if (S.back() == '>')
@@ -1407,38 +1407,38 @@ struct ForwardTemplateReference : Node {
   // special handling.
   template<typename Fn> void match(Fn F) const = delete;
 
-  bool hasRHSComponentSlow(OutputStream &S) const override {
+  bool hasRHSComponentSlow(OutputString &S) const override {
     if (Printing)
       return false;
     SwapAndRestore<bool> SavePrinting(Printing, true);
     return Ref->hasRHSComponent(S);
   }
-  bool hasArraySlow(OutputStream &S) const override {
+  bool hasArraySlow(OutputString &S) const override {
     if (Printing)
       return false;
     SwapAndRestore<bool> SavePrinting(Printing, true);
     return Ref->hasArray(S);
   }
-  bool hasFunctionSlow(OutputStream &S) const override {
+  bool hasFunctionSlow(OutputString &S) const override {
     if (Printing)
       return false;
     SwapAndRestore<bool> SavePrinting(Printing, true);
     return Ref->hasFunction(S);
   }
-  const Node *getSyntaxNode(OutputStream &S) const override {
+  const Node *getSyntaxNode(OutputString &S) const override {
     if (Printing)
       return this;
     SwapAndRestore<bool> SavePrinting(Printing, true);
     return Ref->getSyntaxNode(S);
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (Printing)
       return;
     SwapAndRestore<bool> SavePrinting(Printing, true);
     Ref->printLeft(S);
   }
-  void printRight(OutputStream &S) const override {
+  void printRight(OutputString &S) const override {
     if (Printing)
       return;
     SwapAndRestore<bool> SavePrinting(Printing, true);
@@ -1458,7 +1458,7 @@ struct NameWithTemplateArgs : Node {
 
   StringView getBaseName() const override { return Name->getBaseName(); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Name->print(S);
     TemplateArgs->print(S);
   }
@@ -1475,7 +1475,7 @@ public:
 
   StringView getBaseName() const override { return Child->getBaseName(); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "::";
     Child->print(S);
   }
@@ -1490,7 +1490,7 @@ struct StdQualifiedName : Node {
 
   StringView getBaseName() const override { return Child->getBaseName(); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "std::";
     Child->print(S);
   }
@@ -1532,7 +1532,7 @@ public:
     DEMANGLE_UNREACHABLE;
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     switch (SSK) {
     case SpecialSubKind::allocator:
       S += "std::allocator";
@@ -1584,7 +1584,7 @@ public:
     DEMANGLE_UNREACHABLE;
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     switch (SSK) {
     case SpecialSubKind::allocator:
       S += "std::allocator";
@@ -1620,7 +1620,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Basename, IsDtor, Variant); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (IsDtor)
       S += "~";
     S += Basename->getBaseName();
@@ -1635,7 +1635,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Base); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "~";
     Base->printLeft(S);
   }
@@ -1649,7 +1649,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Count); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "'unnamed";
     S += Count;
     S += "\'";
@@ -1671,7 +1671,7 @@ public:
     F(TemplateParams, Params, Count);
   }
 
-  void printDeclarator(OutputStream &S) const {
+  void printDeclarator(OutputString &S) const {
     if (!TemplateParams.empty()) {
       S += "<";
       TemplateParams.printWithComma(S);
@@ -1682,7 +1682,7 @@ public:
     S += ")";
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "\'lambda";
     S += Count;
     S += "\'";
@@ -1698,7 +1698,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Bindings); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += '[';
     Bindings.printWithComma(S);
     S += ']';
@@ -1719,7 +1719,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(LHS, InfixOperator, RHS); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     // might be a template argument expression, then we need to disambiguate
     // with parens.
     if (InfixOperator == ">")
@@ -1748,7 +1748,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Op1, Op2); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "(";
     Op1->print(S);
     S += ")[";
@@ -1767,7 +1767,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Child, Operator); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "(";
     Child->print(S);
     S += ")";
@@ -1786,7 +1786,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Cond, Then, Else); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "(";
     Cond->print(S);
     S += ") ? (";
@@ -1808,7 +1808,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(LHS, Kind, RHS); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     LHS->print(S);
     S += Kind;
     RHS->print(S);
@@ -1832,7 +1832,7 @@ public:
     F(Type, SubExpr, Offset, UnionSelectors, OnePastTheEnd);
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     SubExpr->print(S);
     S += ".<";
     Type->print(S);
@@ -1861,7 +1861,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Prefix, Infix, Postfix); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += Prefix;
     Infix->print(S);
     S += Postfix;
@@ -1880,7 +1880,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(CastKind, To, From); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += CastKind;
     S += "<";
     To->printLeft(S);
@@ -1899,7 +1899,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Pack); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "sizeof...(";
     ParameterPackExpansion PPE(Pack);
     PPE.printLeft(S);
@@ -1917,7 +1917,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Callee, Args); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     Callee->print(S);
     S += "(";
     Args.printWithComma(S);
@@ -1942,7 +1942,7 @@ public:
     F(ExprList, Type, InitList, IsGlobal, IsArray);
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (IsGlobal)
       S += "::operator ";
     S += "new";
@@ -1975,7 +1975,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Op, IsGlobal, IsArray); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (IsGlobal)
       S += "::";
     S += "delete";
@@ -1995,7 +1995,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Prefix, Child); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += Prefix;
     S += "(";
     Child->print(S);
@@ -2011,7 +2011,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Number); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "fp";
     S += Number;
   }
@@ -2027,7 +2027,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Type, Expressions); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "(";
     Type->print(S);
     S += ")(";
@@ -2049,7 +2049,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Type, SubExpr, Offset); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "(";
     Type->print(S);
     S += ")(";
@@ -2067,7 +2067,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Ty, Inits); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (Ty)
       Ty->print(S);
     S += '{';
@@ -2086,7 +2086,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Elem, Init, IsArray); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (IsArray) {
       S += '[';
       Elem->print(S);
@@ -2111,7 +2111,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(First, Last, Init); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += '[';
     First->print(S);
     S += " ... ";
@@ -2138,7 +2138,7 @@ public:
     F(IsLeftFold, OperatorName, Pack, Init);
   }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     auto PrintPack = [&] {
       S += '(';
       ParameterPackExpansion(Pack).print(S);
@@ -2186,7 +2186,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Op); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "throw ";
     Op->print(S);
   }
@@ -2200,7 +2200,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Value); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += Value ? StringView("true") : StringView("false");
   }
 };
@@ -2213,7 +2213,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Type); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "\"<";
     Type->print(S);
     S += ">\"";
@@ -2228,7 +2228,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Type); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S += "[]";
     if (Type->getKind() == KClosureTypeName)
       static_cast<const ClosureTypeName *>(Type)->printDeclarator(S);
@@ -2247,7 +2247,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Ty, Integer); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     S << "(";
     Ty->print(S);
     S << ")";
@@ -2269,7 +2269,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Type, Value); }
 
-  void printLeft(OutputStream &S) const override {
+  void printLeft(OutputString &S) const override {
     if (Type.size() > 3) {
       S += "(";
       S += Type;
@@ -2313,7 +2313,7 @@ public:
 
   template<typename Fn> void match(Fn F) const { F(Contents); }
 
-  void printLeft(OutputStream &s) const override {
+  void printLeft(OutputString &s) const override {
     const char *first = Contents.begin();
     const char *last = Contents.end() + 1;
 

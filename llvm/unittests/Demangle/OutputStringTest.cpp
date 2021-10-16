@@ -11,21 +11,21 @@
 #include <string>
 
 using namespace llvm;
-using llvm::itanium_demangle::OutputStream;
+using llvm::itanium_demangle::OutputString;
 
-static std::string toString(OutputStream &OS) {
+static std::string toString(OutputString &OS) {
   return {OS.getBuffer(), OS.getCurrentPosition()};
 }
 
 template <typename T> static std::string printToString(const T &Value) {
-  OutputStream OS;
+  OutputString OS;
   OS << Value;
   std::string s = toString(OS);
   std::free(OS.getBuffer());
   return s;
 }
 
-TEST(OutputStreamTest, Format) {
+TEST(OutputStringTest, Format) {
   EXPECT_EQ("0", printToString(0));
   EXPECT_EQ("1", printToString(1));
   EXPECT_EQ("-1", printToString(-1));
@@ -39,8 +39,8 @@ TEST(OutputStreamTest, Format) {
   EXPECT_EQ("abc", printToString("abc"));
 }
 
-TEST(OutputStreamTest, Insert) {
-  OutputStream OS;
+TEST(OutputStringTest, Insert) {
+  OutputString OS;
 
   OS.insert(0, "", 0);
   EXPECT_EQ("", toString(OS));

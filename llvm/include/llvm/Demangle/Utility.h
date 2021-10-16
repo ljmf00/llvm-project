@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEMANGLE_UTILITY_H
-#define LLVM_DEMANGLE_UTILITY_H
+#ifndef DEMANGLE_UTILITY_H
+#define DEMANGLE_UTILITY_H
 
 #include "StringView.h"
 #include <cstdint>
@@ -24,7 +24,7 @@ DEMANGLE_NAMESPACE_BEGIN
 
 // Stream that AST nodes write their string representation into after the AST
 // has been parsed.
-class OutputStream {
+class OutputString {
   char *Buffer = nullptr;
   size_t CurrentPosition = 0;
   size_t BufferCapacity = 0;
@@ -63,9 +63,9 @@ class OutputStream {
   }
 
 public:
-  OutputStream(char *StartBuf, size_t Size)
+  OutputString(char *StartBuf, size_t Size)
       : Buffer(StartBuf), CurrentPosition(0), BufferCapacity(Size) {}
-  OutputStream() = default;
+  OutputString() = default;
   void reset(char *Buffer_, size_t BufferCapacity_) {
     CurrentPosition = 0;
     Buffer = Buffer_;
@@ -77,7 +77,7 @@ public:
   unsigned CurrentPackIndex = std::numeric_limits<unsigned>::max();
   unsigned CurrentPackMax = std::numeric_limits<unsigned>::max();
 
-  OutputStream &operator+=(StringView R) {
+  OutputString &operator+=(StringView R) {
     size_t Size = R.size();
     if (Size == 0)
       return *this;
@@ -87,17 +87,17 @@ public:
     return *this;
   }
 
-  OutputStream &operator+=(char C) {
+  OutputString &operator+=(char C) {
     grow(1);
     Buffer[CurrentPosition++] = C;
     return *this;
   }
 
-  OutputStream &operator<<(StringView R) { return (*this += R); }
+  OutputString &operator<<(StringView R) { return (*this += R); }
 
-  OutputStream &operator<<(char C) { return (*this += C); }
+  OutputString &operator<<(char C) { return (*this += C); }
 
-  OutputStream &operator<<(long long N) {
+  OutputString &operator<<(long long N) {
     if (N < 0)
       writeUnsigned(static_cast<unsigned long long>(-N), true);
     else
@@ -105,24 +105,24 @@ public:
     return *this;
   }
 
-  OutputStream &operator<<(unsigned long long N) {
+  OutputString &operator<<(unsigned long long N) {
     writeUnsigned(N, false);
     return *this;
   }
 
-  OutputStream &operator<<(long N) {
+  OutputString &operator<<(long N) {
     return this->operator<<(static_cast<long long>(N));
   }
 
-  OutputStream &operator<<(unsigned long N) {
+  OutputString &operator<<(unsigned long N) {
     return this->operator<<(static_cast<unsigned long long>(N));
   }
 
-  OutputStream &operator<<(int N) {
+  OutputString &operator<<(int N) {
     return this->operator<<(static_cast<long long>(N));
   }
 
-  OutputStream &operator<<(unsigned int N) {
+  OutputString &operator<<(unsigned int N) {
     return this->operator<<(static_cast<unsigned long long>(N));
   }
 
@@ -181,7 +181,7 @@ public:
   SwapAndRestore &operator=(const SwapAndRestore &) = delete;
 };
 
-inline bool initializeOutputStream(char *Buf, size_t *N, OutputStream &S,
+inline bool initializeOutputString(char *Buf, size_t *N, OutputString &S,
                                    size_t InitSize) {
   size_t BufferSize;
   if (Buf == nullptr) {
