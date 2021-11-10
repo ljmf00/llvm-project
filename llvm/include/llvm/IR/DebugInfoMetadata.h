@@ -664,6 +664,7 @@ Optional<StringRef> DIScope::getSource() const {
 /// TODO: Split up flags.
 class DIType : public DIScope {
   unsigned Line;
+  unsigned Column;
   DIFlags Flags;
   uint64_t SizeInBits;
   uint64_t OffsetInBits;
@@ -671,16 +672,17 @@ class DIType : public DIScope {
 
 protected:
   DIType(LLVMContext &C, unsigned ID, StorageType Storage, unsigned Tag,
-         unsigned Line, uint64_t SizeInBits, uint32_t AlignInBits,
+         unsigned Line, unsigned Column, uint64_t SizeInBits, uint32_t AlignInBits,
          uint64_t OffsetInBits, DIFlags Flags, ArrayRef<Metadata *> Ops)
       : DIScope(C, ID, Storage, Tag, Ops) {
-    init(Line, SizeInBits, AlignInBits, OffsetInBits, Flags);
+    init(Line, Column, SizeInBits, AlignInBits, OffsetInBits, Flags);
   }
   ~DIType() = default;
 
-  void init(unsigned Line, uint64_t SizeInBits, uint32_t AlignInBits,
+  void init(unsigned Line, unsigned Column, uint64_t SizeInBits, uint32_t AlignInBits,
             uint64_t OffsetInBits, DIFlags Flags) {
     this->Line = Line;
+    this->Column = Column;
     this->Flags = Flags;
     this->SizeInBits = SizeInBits;
     this->AlignInBits = AlignInBits;
@@ -688,11 +690,11 @@ protected:
   }
 
   /// Change fields in place.
-  void mutate(unsigned Tag, unsigned Line, uint64_t SizeInBits,
+  void mutate(unsigned Tag, unsigned Line, unsigned Column, uint64_t SizeInBits,
               uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags) {
     assert(isDistinct() && "Only distinct nodes can mutate");
     setTag(Tag);
-    init(Line, SizeInBits, AlignInBits, OffsetInBits, Flags);
+    init(Line, Column, SizeInBits, AlignInBits, OffsetInBits, Flags);
   }
 
 public:
@@ -701,6 +703,7 @@ public:
   }
 
   unsigned getLine() const { return Line; }
+  unsigned getColumn() const { return Column; }
   uint64_t getSizeInBits() const { return SizeInBits; }
   uint32_t getAlignInBits() const { return AlignInBits; }
   uint32_t getAlignInBytes() const { return getAlignInBits() / CHAR_BIT; }
@@ -777,7 +780,7 @@ class DIBasicType : public DIType {
   DIBasicType(LLVMContext &C, StorageType Storage, unsigned Tag,
               uint64_t SizeInBits, uint32_t AlignInBits, unsigned Encoding,
               DIFlags Flags, ArrayRef<Metadata *> Ops)
-      : DIType(C, DIBasicTypeKind, Storage, Tag, 0, SizeInBits, AlignInBits, 0,
+      : DIType(C, DIBasicTypeKind, Storage, Tag, 0, 0, SizeInBits, AlignInBits, 0,
                Flags, Ops),
         Encoding(Encoding) {}
   ~DIBasicType() = default;
@@ -845,7 +848,7 @@ class DIStringType : public DIType {
   DIStringType(LLVMContext &C, StorageType Storage, unsigned Tag,
                uint64_t SizeInBits, uint32_t AlignInBits, unsigned Encoding,
                ArrayRef<Metadata *> Ops)
-      : DIType(C, DIStringTypeKind, Storage, Tag, 0, SizeInBits, AlignInBits, 0,
+      : DIType(C, DIStringTypeKind, Storage, Tag, 0, 0, SizeInBits, AlignInBits, 0,
                FlagZero, Ops),
         Encoding(Encoding) {}
   ~DIStringType() = default;
@@ -925,29 +928,29 @@ class DIDerivedType : public DIType {
   Optional<unsigned> DWARFAddressSpace;
 
   DIDerivedType(LLVMContext &C, StorageType Storage, unsigned Tag,
-                unsigned Line, uint64_t SizeInBits, uint32_t AlignInBits,
+                unsigned Line, unsigned Column, uint64_t SizeInBits, uint32_t AlignInBits,
                 uint64_t OffsetInBits, Optional<unsigned> DWARFAddressSpace,
                 DIFlags Flags, ArrayRef<Metadata *> Ops)
-      : DIType(C, DIDerivedTypeKind, Storage, Tag, Line, SizeInBits,
+      : DIType(C, DIDerivedTypeKind, Storage, Tag, Line, Column, SizeInBits,
                AlignInBits, OffsetInBits, Flags, Ops),
         DWARFAddressSpace(DWARFAddressSpace) {}
   ~DIDerivedType() = default;
 
   static DIDerivedType *
   getImpl(LLVMContext &Context, unsigned Tag, StringRef Name, DIFile *File,
-          unsigned Line, DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
+          unsigned Line, unsigned Column, DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
           uint32_t AlignInBits, uint64_t OffsetInBits,
           Optional<unsigned> DWARFAddressSpace, DIFlags Flags,
           Metadata *ExtraData, DINodeArray Annotations, StorageType Storage,
           bool ShouldCreate = true) {
     return getImpl(Context, Tag, getCanonicalMDString(Context, Name), File,
-                   Line, Scope, BaseType, SizeInBits, AlignInBits, OffsetInBits,
+                   Line, Column, Scope, BaseType, SizeInBits, AlignInBits, OffsetInBits,
                    DWARFAddressSpace, Flags, ExtraData, Annotations.get(),
                    Storage, ShouldCreate);
   }
   static DIDerivedType *
   getImpl(LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
-          unsigned Line, Metadata *Scope, Metadata *BaseType,
+          unsigned Line, unsigned Column, Metadata *Scope, Metadata *BaseType,
           uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
           Optional<unsigned> DWARFAddressSpace, DIFlags Flags,
           Metadata *ExtraData, Metadata *Annotations, StorageType Storage,
@@ -955,7 +958,7 @@ class DIDerivedType : public DIType {
 
   TempDIDerivedType cloneImpl() const {
     return getTemporary(
-        getContext(), getTag(), getName(), getFile(), getLine(), getScope(),
+        getContext(), getTag(), getName(), getFile(), getLine(), getColumn(), getScope(),
         getBaseType(), getSizeInBits(), getAlignInBits(), getOffsetInBits(),
         getDWARFAddressSpace(), getFlags(), getExtraData(), getAnnotations());
   }
@@ -963,21 +966,21 @@ class DIDerivedType : public DIType {
 public:
   DEFINE_MDNODE_GET(
       DIDerivedType,
-      (unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
+      (unsigned Tag, MDString *Name, Metadata *File, unsigned Line, unsigned Column,
        Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
        uint32_t AlignInBits, uint64_t OffsetInBits,
        Optional<unsigned> DWARFAddressSpace, DIFlags Flags,
        Metadata *ExtraData = nullptr, Metadata *Annotations = nullptr),
-      (Tag, Name, File, Line, Scope, BaseType, SizeInBits, AlignInBits,
+      (Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits, AlignInBits,
        OffsetInBits, DWARFAddressSpace, Flags, ExtraData, Annotations))
   DEFINE_MDNODE_GET(DIDerivedType,
-                    (unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
+                    (unsigned Tag, StringRef Name, DIFile *File, unsigned Line, unsigned Column,
                      DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
                      uint32_t AlignInBits, uint64_t OffsetInBits,
                      Optional<unsigned> DWARFAddressSpace, DIFlags Flags,
                      Metadata *ExtraData = nullptr,
                      DINodeArray Annotations = nullptr),
-                    (Tag, Name, File, Line, Scope, BaseType, SizeInBits,
+                    (Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits,
                      AlignInBits, OffsetInBits, DWARFAddressSpace, Flags,
                      ExtraData, Annotations))
 
@@ -1064,27 +1067,27 @@ class DICompositeType : public DIType {
   unsigned RuntimeLang;
 
   DICompositeType(LLVMContext &C, StorageType Storage, unsigned Tag,
-                  unsigned Line, unsigned RuntimeLang, uint64_t SizeInBits,
+                  unsigned Line, unsigned Column, unsigned RuntimeLang, uint64_t SizeInBits,
                   uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
                   ArrayRef<Metadata *> Ops)
-      : DIType(C, DICompositeTypeKind, Storage, Tag, Line, SizeInBits,
+      : DIType(C, DICompositeTypeKind, Storage, Tag, Line, Column, SizeInBits,
                AlignInBits, OffsetInBits, Flags, Ops),
         RuntimeLang(RuntimeLang) {}
   ~DICompositeType() = default;
 
   /// Change fields in place.
-  void mutate(unsigned Tag, unsigned Line, unsigned RuntimeLang,
+  void mutate(unsigned Tag, unsigned Line, unsigned Column, unsigned RuntimeLang,
               uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
               DIFlags Flags) {
     assert(isDistinct() && "Only distinct nodes can mutate");
     assert(getRawIdentifier() && "Only ODR-uniqued nodes should mutate");
     this->RuntimeLang = RuntimeLang;
-    DIType::mutate(Tag, Line, SizeInBits, AlignInBits, OffsetInBits, Flags);
+    DIType::mutate(Tag, Line, Column, SizeInBits, AlignInBits, OffsetInBits, Flags);
   }
 
   static DICompositeType *
   getImpl(LLVMContext &Context, unsigned Tag, StringRef Name, Metadata *File,
-          unsigned Line, DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
+          unsigned Line, unsigned Column, DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
           uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
           DINodeArray Elements, unsigned RuntimeLang, DIType *VTableHolder,
           DITemplateParameterArray TemplateParams, StringRef Identifier,
@@ -1093,7 +1096,7 @@ class DICompositeType : public DIType {
           DINodeArray Annotations, StorageType Storage,
           bool ShouldCreate = true) {
     return getImpl(
-        Context, Tag, getCanonicalMDString(Context, Name), File, Line, Scope,
+        Context, Tag, getCanonicalMDString(Context, Name), File, Line, Column, Scope,
         BaseType, SizeInBits, AlignInBits, OffsetInBits, Flags, Elements.get(),
         RuntimeLang, VTableHolder, TemplateParams.get(),
         getCanonicalMDString(Context, Identifier), Discriminator, DataLocation,
@@ -1101,7 +1104,7 @@ class DICompositeType : public DIType {
   }
   static DICompositeType *
   getImpl(LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
-          unsigned Line, Metadata *Scope, Metadata *BaseType,
+          unsigned Line, unsigned Column, Metadata *Scope, Metadata *BaseType,
           uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
           DIFlags Flags, Metadata *Elements, unsigned RuntimeLang,
           Metadata *VTableHolder, Metadata *TemplateParams,
@@ -1111,7 +1114,7 @@ class DICompositeType : public DIType {
 
   TempDICompositeType cloneImpl() const {
     return getTemporary(
-        getContext(), getTag(), getName(), getFile(), getLine(), getScope(),
+        getContext(), getTag(), getName(), getFile(), getLine(), getColumn(), getScope(),
         getBaseType(), getSizeInBits(), getAlignInBits(), getOffsetInBits(),
         getFlags(), getElements(), getRuntimeLang(), getVTableHolder(),
         getTemplateParams(), getIdentifier(), getDiscriminator(),
@@ -1122,7 +1125,7 @@ class DICompositeType : public DIType {
 public:
   DEFINE_MDNODE_GET(
       DICompositeType,
-      (unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
+      (unsigned Tag, StringRef Name, DIFile *File, unsigned Line, unsigned Column,
        DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
        uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
        DINodeArray Elements, unsigned RuntimeLang, DIType *VTableHolder,
@@ -1131,13 +1134,13 @@ public:
        Metadata *DataLocation = nullptr, Metadata *Associated = nullptr,
        Metadata *Allocated = nullptr, Metadata *Rank = nullptr,
        DINodeArray Annotations = nullptr),
-      (Tag, Name, File, Line, Scope, BaseType, SizeInBits, AlignInBits,
+      (Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits, AlignInBits,
        OffsetInBits, Flags, Elements, RuntimeLang, VTableHolder, TemplateParams,
        Identifier, Discriminator, DataLocation, Associated, Allocated, Rank,
        Annotations))
   DEFINE_MDNODE_GET(
       DICompositeType,
-      (unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
+      (unsigned Tag, MDString *Name, Metadata *File, unsigned Line, unsigned Column,
        Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
        uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
        Metadata *Elements, unsigned RuntimeLang, Metadata *VTableHolder,
@@ -1145,7 +1148,7 @@ public:
        Metadata *Discriminator = nullptr, Metadata *DataLocation = nullptr,
        Metadata *Associated = nullptr, Metadata *Allocated = nullptr,
        Metadata *Rank = nullptr, Metadata *Annotations = nullptr),
-      (Tag, Name, File, Line, Scope, BaseType, SizeInBits, AlignInBits,
+      (Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits, AlignInBits,
        OffsetInBits, Flags, Elements, RuntimeLang, VTableHolder, TemplateParams,
        Identifier, Discriminator, DataLocation, Associated, Allocated, Rank,
        Annotations))
@@ -1161,7 +1164,7 @@ public:
   /// Else, returns \c nullptr.
   static DICompositeType *
   getODRType(LLVMContext &Context, MDString &Identifier, unsigned Tag,
-             MDString *Name, Metadata *File, unsigned Line, Metadata *Scope,
+             MDString *Name, Metadata *File, unsigned Line, unsigned Column, Metadata *Scope,
              Metadata *BaseType, uint64_t SizeInBits, uint32_t AlignInBits,
              uint64_t OffsetInBits, DIFlags Flags, Metadata *Elements,
              unsigned RuntimeLang, Metadata *VTableHolder,
@@ -1182,7 +1185,7 @@ public:
   /// nullptr.
   static DICompositeType *
   buildODRType(LLVMContext &Context, MDString &Identifier, unsigned Tag,
-               MDString *Name, Metadata *File, unsigned Line, Metadata *Scope,
+               MDString *Name, Metadata *File, unsigned Line, unsigned Column, Metadata *Scope,
                Metadata *BaseType, uint64_t SizeInBits, uint32_t AlignInBits,
                uint64_t OffsetInBits, DIFlags Flags, Metadata *Elements,
                unsigned RuntimeLang, Metadata *VTableHolder,
@@ -1291,7 +1294,7 @@ class DISubroutineType : public DIType {
   DISubroutineType(LLVMContext &C, StorageType Storage, DIFlags Flags,
                    uint8_t CC, ArrayRef<Metadata *> Ops)
       : DIType(C, DISubroutineTypeKind, Storage, dwarf::DW_TAG_subroutine_type,
-               0, 0, 0, 0, Flags, Ops),
+               0, 0, 0, 0, 0, Flags, Ops),
         CC(CC) {}
   ~DISubroutineType() = default;
 

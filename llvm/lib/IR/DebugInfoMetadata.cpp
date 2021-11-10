@@ -580,25 +580,25 @@ DIStringType *DIStringType::getImpl(LLVMContext &Context, unsigned Tag,
 
 DIDerivedType *DIDerivedType::getImpl(
     LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
-    unsigned Line, Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
+    unsigned Line, unsigned Column, Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
     uint32_t AlignInBits, uint64_t OffsetInBits,
     Optional<unsigned> DWARFAddressSpace, DIFlags Flags, Metadata *ExtraData,
     Metadata *Annotations, StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
   DEFINE_GETIMPL_LOOKUP(DIDerivedType,
-                        (Tag, Name, File, Line, Scope, BaseType, SizeInBits,
+                        (Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits,
                          AlignInBits, OffsetInBits, DWARFAddressSpace, Flags,
                          ExtraData, Annotations));
   Metadata *Ops[] = {File, Scope, Name, BaseType, ExtraData, Annotations};
   DEFINE_GETIMPL_STORE(DIDerivedType,
-                       (Tag, Line, SizeInBits, AlignInBits, OffsetInBits,
+                       (Tag, Line, Column, SizeInBits, AlignInBits, OffsetInBits,
                         DWARFAddressSpace, Flags),
                        Ops);
 }
 
 DICompositeType *DICompositeType::getImpl(
     LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
-    unsigned Line, Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
+    unsigned Line, unsigned Column, Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
     uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
     Metadata *Elements, unsigned RuntimeLang, Metadata *VTableHolder,
     Metadata *TemplateParams, MDString *Identifier, Metadata *Discriminator,
@@ -609,7 +609,7 @@ DICompositeType *DICompositeType::getImpl(
 
   // Keep this in sync with buildODRType.
   DEFINE_GETIMPL_LOOKUP(DICompositeType,
-                        (Tag, Name, File, Line, Scope, BaseType, SizeInBits,
+                        (Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits,
                          AlignInBits, OffsetInBits, Flags, Elements,
                          RuntimeLang, VTableHolder, TemplateParams, Identifier,
                          Discriminator, DataLocation, Associated, Allocated,
@@ -620,13 +620,13 @@ DICompositeType *DICompositeType::getImpl(
                      Rank,          Annotations};
   DEFINE_GETIMPL_STORE(
       DICompositeType,
-      (Tag, Line, RuntimeLang, SizeInBits, AlignInBits, OffsetInBits, Flags),
+      (Tag, Line, Column, RuntimeLang, SizeInBits, AlignInBits, OffsetInBits, Flags),
       Ops);
 }
 
 DICompositeType *DICompositeType::buildODRType(
     LLVMContext &Context, MDString &Identifier, unsigned Tag, MDString *Name,
-    Metadata *File, unsigned Line, Metadata *Scope, Metadata *BaseType,
+    Metadata *File, unsigned Line, unsigned Column, Metadata *Scope, Metadata *BaseType,
     uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
     DIFlags Flags, Metadata *Elements, unsigned RuntimeLang,
     Metadata *VTableHolder, Metadata *TemplateParams, Metadata *Discriminator,
@@ -638,7 +638,7 @@ DICompositeType *DICompositeType::buildODRType(
   auto *&CT = (*Context.pImpl->DITypeMap)[&Identifier];
   if (!CT)
     return CT = DICompositeType::getDistinct(
-               Context, Tag, Name, File, Line, Scope, BaseType, SizeInBits,
+               Context, Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits,
                AlignInBits, OffsetInBits, Flags, Elements, RuntimeLang,
                VTableHolder, TemplateParams, &Identifier, Discriminator,
                DataLocation, Associated, Allocated, Rank, Annotations);
@@ -652,7 +652,7 @@ DICompositeType *DICompositeType::buildODRType(
     return CT;
 
   // Mutate CT in place.  Keep this in sync with getImpl.
-  CT->mutate(Tag, Line, RuntimeLang, SizeInBits, AlignInBits, OffsetInBits,
+  CT->mutate(Tag, Line, Column, RuntimeLang, SizeInBits, AlignInBits, OffsetInBits,
              Flags);
   Metadata *Ops[] = {File,          Scope,        Name,           BaseType,
                      Elements,      VTableHolder, TemplateParams, &Identifier,
@@ -668,7 +668,7 @@ DICompositeType *DICompositeType::buildODRType(
 
 DICompositeType *DICompositeType::getODRType(
     LLVMContext &Context, MDString &Identifier, unsigned Tag, MDString *Name,
-    Metadata *File, unsigned Line, Metadata *Scope, Metadata *BaseType,
+    Metadata *File, unsigned Line, unsigned Column, Metadata *Scope, Metadata *BaseType,
     uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
     DIFlags Flags, Metadata *Elements, unsigned RuntimeLang,
     Metadata *VTableHolder, Metadata *TemplateParams, Metadata *Discriminator,
@@ -680,7 +680,7 @@ DICompositeType *DICompositeType::getODRType(
   auto *&CT = (*Context.pImpl->DITypeMap)[&Identifier];
   if (!CT) {
     CT = DICompositeType::getDistinct(
-        Context, Tag, Name, File, Line, Scope, BaseType, SizeInBits,
+        Context, Tag, Name, File, Line, Column, Scope, BaseType, SizeInBits,
         AlignInBits, OffsetInBits, Flags, Elements, RuntimeLang, VTableHolder,
         TemplateParams, &Identifier, Discriminator, DataLocation, Associated,
         Allocated, Rank, Annotations);

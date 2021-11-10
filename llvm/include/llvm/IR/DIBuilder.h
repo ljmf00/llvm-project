@@ -591,7 +591,7 @@ namespace llvm {
 
     /// Create a temporary forward-declared type.
     DICompositeType *createReplaceableCompositeType(
-        unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line,
+        unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line, unsigned Column,
         unsigned RuntimeLang = 0, uint64_t SizeInBits = 0,
         uint32_t AlignInBits = 0, DINode::DIFlags Flags = DINode::FlagFwdDecl,
         StringRef UniqueIdentifier = "", DINodeArray Annotations = nullptr);

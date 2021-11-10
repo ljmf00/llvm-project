@@ -283,7 +283,7 @@ DIStringType *DIBuilder::createStringType(StringRef Name, uint64_t SizeInBits) {
 }
 
 DIDerivedType *DIBuilder::createQualifiedType(unsigned Tag, DIType *FromTy) {
-  return DIDerivedType::get(VMContext, Tag, "", nullptr, 0, nullptr, FromTy, 0,
+  return DIDerivedType::get(VMContext, Tag, "", nullptr, 0, 0, nullptr, FromTy, 0,
                             0, 0, None, DINode::FlagZero);
 }
 
@@ -294,7 +294,7 @@ DIBuilder::createPointerType(DIType *PointeeTy, uint64_t SizeInBits,
                              StringRef Name, DINodeArray Annotations) {
   // FIXME: Why is there a name here?
   return DIDerivedType::get(VMContext, dwarf::DW_TAG_pointer_type, Name,
-                            nullptr, 0, nullptr, PointeeTy, SizeInBits,
+                            nullptr, 0, 0, nullptr, PointeeTy, SizeInBits,
                             AlignInBits, 0, DWARFAddressSpace, DINode::FlagZero,
                             nullptr, Annotations);
 }
@@ -305,7 +305,7 @@ DIDerivedType *DIBuilder::createMemberPointerType(DIType *PointeeTy,
                                                   uint32_t AlignInBits,
                                                   DINode::DIFlags Flags) {
   return DIDerivedType::get(VMContext, dwarf::DW_TAG_ptr_to_member_type, "",
-                            nullptr, 0, nullptr, PointeeTy, SizeInBits,
+                            nullptr, 0, 0, nullptr, PointeeTy, SizeInBits,
                             AlignInBits, 0, None, Flags, Base);
 }
 
@@ -314,17 +314,17 @@ DIBuilder::createReferenceType(unsigned Tag, DIType *RTy, uint64_t SizeInBits,
                                uint32_t AlignInBits,
                                Optional<unsigned> DWARFAddressSpace) {
   assert(RTy && "Unable to create reference type");
-  return DIDerivedType::get(VMContext, Tag, "", nullptr, 0, nullptr, RTy,
+  return DIDerivedType::get(VMContext, Tag, "", nullptr, 0, 0, nullptr, RTy,
                             SizeInBits, AlignInBits, 0, DWARFAddressSpace,
                             DINode::FlagZero);
 }
 
 DIDerivedType *DIBuilder::createTypedef(DIType *Ty, StringRef Name,
-                                        DIFile *File, unsigned LineNo,
+                                        DIFile *File, unsigned LineNo, unsigned Column,
                                         DIScope *Context, uint32_t AlignInBits,
                                         DINodeArray Annotations) {
   return DIDerivedType::get(VMContext, dwarf::DW_TAG_typedef, Name, File,
-                            LineNo, getNonCompileUnitScope(Context), Ty, 0,
+                            LineNo, Column, getNonCompileUnitScope(Context), Ty, 0,
                             AlignInBits, 0, None, DINode::FlagZero, nullptr,
                             Annotations);
 }
@@ -503,12 +503,12 @@ DICompositeType *DIBuilder::createUnionType(
 
 DICompositeType *
 DIBuilder::createVariantPart(DIScope *Scope, StringRef Name, DIFile *File,
-                             unsigned LineNumber, uint64_t SizeInBits,
+                             unsigned LineNumber, unsigned ColumnNumber, uint64_t SizeInBits,
                              uint32_t AlignInBits, DINode::DIFlags Flags,
                              DIDerivedType *Discriminator, DINodeArray Elements,
                              StringRef UniqueIdentifier) {
   auto *R = DICompositeType::get(
-      VMContext, dwarf::DW_TAG_variant_part, Name, File, LineNumber,
+      VMContext, dwarf::DW_TAG_variant_part, Name, File, LineNumber, ColumnNumber,
       getNonCompileUnitScope(Scope), nullptr, SizeInBits, AlignInBits, 0, Flags,
       Elements, 0, nullptr, nullptr, UniqueIdentifier, Discriminator);
   trackIfUnresolved(R);
@@ -522,11 +522,11 @@ DISubroutineType *DIBuilder::createSubroutineType(DITypeRefArray ParameterTypes,
 }
 
 DICompositeType *DIBuilder::createEnumerationType(
-    DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
+    DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber, unsigned ColumnNumber,
     uint64_t SizeInBits, uint32_t AlignInBits, DINodeArray Elements,
     DIType *UnderlyingType, StringRef UniqueIdentifier, bool IsScoped) {
   auto *CTy = DICompositeType::get(
-      VMContext, dwarf::DW_TAG_enumeration_type, Name, File, LineNumber,
+      VMContext, dwarf::DW_TAG_enumeration_type, Name, File, LineNumber, ColumnNumber,
       getNonCompileUnitScope(Scope), UnderlyingType, SizeInBits, AlignInBits, 0,
       IsScoped ? DINode::FlagEnumClass : DINode::FlagZero, Elements, 0, nullptr,
       nullptr, UniqueIdentifier);
@@ -536,11 +536,11 @@ DICompositeType *DIBuilder::createEnumerationType(
 }
 
 DIDerivedType *DIBuilder::createSetType(DIScope *Scope, StringRef Name,
-                                        DIFile *File, unsigned LineNo,
+                                        DIFile *File, unsigned LineNo, unsigned ColumnNo,
                                         uint64_t SizeInBits,
                                         uint32_t AlignInBits, DIType *Ty) {
   auto *R =
-      DIDerivedType::get(VMContext, dwarf::DW_TAG_set_type, Name, File, LineNo,
+      DIDerivedType::get(VMContext, dwarf::DW_TAG_set_type, Name, File, LineNo, ColumnNo,
                          getNonCompileUnitScope(Scope), Ty, SizeInBits,
                          AlignInBits, 0, None, DINode::FlagZero);
   trackIfUnresolved(R);
@@ -618,13 +618,13 @@ DIBasicType *DIBuilder::createUnspecifiedParameter() { return nullptr; }
 
 DICompositeType *
 DIBuilder::createForwardDecl(unsigned Tag, StringRef Name, DIScope *Scope,
-                             DIFile *F, unsigned Line, unsigned RuntimeLang,
+                             DIFile *F, unsigned Line, unsigned Column, unsigned RuntimeLang,
                              uint64_t SizeInBits, uint32_t AlignInBits,
                              StringRef UniqueIdentifier) {
   // FIXME: Define in terms of createReplaceableForwardDecl() by calling
   // replaceWithUniqued().
   auto *RetTy = DICompositeType::get(
-      VMContext, Tag, Name, F, Line, getNonCompileUnitScope(Scope), nullptr,
+      VMContext, Tag, Name, F, Line, Column, getNonCompileUnitScope(Scope), nullptr,
       SizeInBits, AlignInBits, 0, DINode::FlagFwdDecl, nullptr, RuntimeLang,
       nullptr, nullptr, UniqueIdentifier);
   trackIfUnresolved(RetTy);
@@ -632,13 +632,13 @@ DIBuilder::createForwardDecl(unsigned Tag, StringRef Name, DIScope *Scope,
 }
 
 DICompositeType *DIBuilder::createReplaceableCompositeType(
-    unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line,
+    unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line, unsigned Column,
     unsigned RuntimeLang, uint64_t SizeInBits, uint32_t AlignInBits,
     DINode::DIFlags Flags, StringRef UniqueIdentifier,
     DINodeArray Annotations) {
   auto *RetTy =
       DICompositeType::getTemporary(
-          VMContext, Tag, Name, F, Line, getNonCompileUnitScope(Scope), nullptr,
+          VMContext, Tag, Name, F, Line, Column, getNonCompileUnitScope(Scope), nullptr,
           SizeInBits, AlignInBits, 0, Flags, nullptr, RuntimeLang, nullptr,
           nullptr, UniqueIdentifier, nullptr, nullptr, nullptr, nullptr,
           nullptr, Annotations)

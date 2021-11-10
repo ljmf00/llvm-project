@@ -458,6 +458,7 @@ template <> struct MDNodeKeyImpl<DIDerivedType> {
   MDString *Name;
   Metadata *File;
   unsigned Line;
+  unsigned Column;
   Metadata *Scope;
   Metadata *BaseType;
   uint64_t SizeInBits;
@@ -468,18 +469,18 @@ template <> struct MDNodeKeyImpl<DIDerivedType> {
   Metadata *ExtraData;
   Metadata *Annotations;
 
-  MDNodeKeyImpl(unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
+  MDNodeKeyImpl(unsigned Tag, MDString *Name, Metadata *File, unsigned Line, unsigned Column,
                 Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
                 uint32_t AlignInBits, uint64_t OffsetInBits,
                 Optional<unsigned> DWARFAddressSpace, unsigned Flags,
                 Metadata *ExtraData, Metadata *Annotations)
-      : Tag(Tag), Name(Name), File(File), Line(Line), Scope(Scope),
+      : Tag(Tag), Name(Name), File(File), Line(Line), Column(Column), Scope(Scope),
         BaseType(BaseType), SizeInBits(SizeInBits), OffsetInBits(OffsetInBits),
         AlignInBits(AlignInBits), DWARFAddressSpace(DWARFAddressSpace),
         Flags(Flags), ExtraData(ExtraData), Annotations(Annotations) {}
   MDNodeKeyImpl(const DIDerivedType *N)
       : Tag(N->getTag()), Name(N->getRawName()), File(N->getRawFile()),
-        Line(N->getLine()), Scope(N->getRawScope()),
+        Line(N->getLine()), Column(N->getColumn()), Scope(N->getRawScope()),
         BaseType(N->getRawBaseType()), SizeInBits(N->getSizeInBits()),
         OffsetInBits(N->getOffsetInBits()), AlignInBits(N->getAlignInBits()),
         DWARFAddressSpace(N->getDWARFAddressSpace()), Flags(N->getFlags()),
@@ -487,7 +488,7 @@ template <> struct MDNodeKeyImpl<DIDerivedType> {
 
   bool isKeyOf(const DIDerivedType *RHS) const {
     return Tag == RHS->getTag() && Name == RHS->getRawName() &&
-           File == RHS->getRawFile() && Line == RHS->getLine() &&
+           File == RHS->getRawFile() && Line == RHS->getLine() && Column == RHS->getColumn() &&
            Scope == RHS->getRawScope() && BaseType == RHS->getRawBaseType() &&
            SizeInBits == RHS->getSizeInBits() &&
            AlignInBits == RHS->getAlignInBits() &&
@@ -550,6 +551,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
   MDString *Name;
   Metadata *File;
   unsigned Line;
+  unsigned Column;
   Metadata *Scope;
   Metadata *BaseType;
   uint64_t SizeInBits;
@@ -568,7 +570,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
   Metadata *Rank;
   Metadata *Annotations;
 
-  MDNodeKeyImpl(unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
+  MDNodeKeyImpl(unsigned Tag, MDString *Name, Metadata *File, unsigned Line, unsigned Column,
                 Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
                 uint32_t AlignInBits, uint64_t OffsetInBits, unsigned Flags,
                 Metadata *Elements, unsigned RuntimeLang,
@@ -576,7 +578,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
                 MDString *Identifier, Metadata *Discriminator,
                 Metadata *DataLocation, Metadata *Associated,
                 Metadata *Allocated, Metadata *Rank, Metadata *Annotations)
-      : Tag(Tag), Name(Name), File(File), Line(Line), Scope(Scope),
+      : Tag(Tag), Name(Name), File(File), Line(Line), Column(Column), Scope(Scope),
         BaseType(BaseType), SizeInBits(SizeInBits), OffsetInBits(OffsetInBits),
         AlignInBits(AlignInBits), Flags(Flags), Elements(Elements),
         RuntimeLang(RuntimeLang), VTableHolder(VTableHolder),
@@ -586,7 +588,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
         Annotations(Annotations) {}
   MDNodeKeyImpl(const DICompositeType *N)
       : Tag(N->getTag()), Name(N->getRawName()), File(N->getRawFile()),
-        Line(N->getLine()), Scope(N->getRawScope()),
+        Line(N->getLine()), Column(N->getColumn()), Scope(N->getRawScope()),
         BaseType(N->getRawBaseType()), SizeInBits(N->getSizeInBits()),
         OffsetInBits(N->getOffsetInBits()), AlignInBits(N->getAlignInBits()),
         Flags(N->getFlags()), Elements(N->getRawElements()),

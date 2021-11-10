@@ -1436,29 +1436,29 @@ Error MetadataLoader::MetadataLoaderImpl::parseOneMetadata(
     break;
   }
   case bitc::METADATA_DERIVED_TYPE: {
-    if (Record.size() < 12 || Record.size() > 14)
+    if (Record.size() < 13 || Record.size() > 15)
       return error("Invalid record");
 
     // DWARF address space is encoded as N->getDWARFAddressSpace() + 1. 0 means
     // that there is no DWARF address space associated with DIDerivedType.
     Optional<unsigned> DWARFAddressSpace;
-    if (Record.size() > 12 && Record[12])
-      DWARFAddressSpace = Record[12] - 1;
+    if (Record.size() > 13 && Record[13])
+      DWARFAddressSpace = Record[13] - 1;
 
     Metadata *Annotations = nullptr;
-    if (Record.size() > 13 && Record[13])
-      Annotations = getMDOrNull(Record[13]);
+    if (Record.size() > 14 && Record[14])
+      Annotations = getMDOrNull(Record[14]);
 
     IsDistinct = Record[0];
-    DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[10]);
+    DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[11]);
     MetadataList.assignValue(
         GET_OR_DISTINCT(DIDerivedType,
                         (Context, Record[1], getMDString(Record[2]),
-                         getMDOrNull(Record[3]), Record[4],
-                         getDITypeRefOrNull(Record[5]),
-                         getDITypeRefOrNull(Record[6]), Record[7], Record[8],
-                         Record[9], DWARFAddressSpace, Flags,
-                         getDITypeRefOrNull(Record[11]), Annotations)),
+                         getMDOrNull(Record[3]), Record[4], Record[5],
+                         getDITypeRefOrNull(Record[6]),
+                         getDITypeRefOrNull(Record[7]), Record[8], Record[9],
+                         Record[10], DWARFAddressSpace, Flags,
+                         getDITypeRefOrNull(Record[12]), Annotations)),
         NextMetadataNo);
     NextMetadataNo++;
     break;
