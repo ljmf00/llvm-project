@@ -268,6 +268,9 @@ void DWARFDIE::AppendTypeName(Stream &s) const {
   case DW_TAG_const_type:
     s.PutCString("const ");
     break;
+  case DW_TAG_immutable_type:
+    s.PutCString("immutable ");
+    break;
   case DW_TAG_enumeration_type:
     s.PutCString("enum ");
     break;

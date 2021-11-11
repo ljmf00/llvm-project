@@ -496,6 +496,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
   case DW_TAG_reference_type:
   case DW_TAG_rvalue_reference_type:
   case DW_TAG_const_type:
+  case DW_TAG_immutable_type:
   case DW_TAG_restrict_type:
   case DW_TAG_volatile_type:
   case DW_TAG_atomic_type:
@@ -645,6 +646,9 @@ DWARFASTParserClang::ParseTypeModifier(const SymbolContext &sc,
     break;
   case DW_TAG_const_type:
     encoding_data_type = Type::eEncodingIsConstUID;
+    break;
+  case DW_TAG_immutable_type:
+    encoding_data_type = Type::eEncodingIsImmutableUID;
     break;
   case DW_TAG_restrict_type:
     encoding_data_type = Type::eEncodingIsRestrictUID;

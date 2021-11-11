@@ -84,6 +84,9 @@ public:
                                    /// whose UID is m_encoding_uid,
     eEncodingIsAtomicUID,          ///< This type is the type whose UID is
                                    /// m_encoding_uid as an atomic type.
+    eEncodingIsImmutableUID,       ///< This type is the type whose UID is
+                                   /// m_encoding_uid with the immutable
+                                   /// qualifier added.
     eEncodingIsSyntheticUID
   };
 
