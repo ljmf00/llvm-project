@@ -355,6 +355,7 @@ struct DWARFTypePrinter {
     case DW_TAG_structure_type:
     case DW_TAG_class_type:
     case DW_TAG_enumeration_type:
+    case DW_TAG_immutable_type:
     case DW_TAG_base_type:
     case DW_TAG_namespace:
     */
