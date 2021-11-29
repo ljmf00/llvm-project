@@ -9,8 +9,11 @@
 #ifndef LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFATTRIBUTE_H
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFATTRIBUTE_H
 
+#include "DWARFDIE.h"
 #include "DWARFDefines.h"
 #include "DWARFFormValue.h"
+#include "lldb/Core/Declaration.h"
+#include "lldb/Utility/ConstString.h"
 #include "llvm/ADT/SmallVector.h"
 #include <vector>
 

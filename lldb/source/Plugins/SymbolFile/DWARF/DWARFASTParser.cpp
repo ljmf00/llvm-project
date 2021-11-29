@@ -9,6 +9,7 @@
 #include "DWARFASTParser.h"
 #include "DWARFAttribute.h"
 #include "DWARFDIE.h"
+#include "DWARFUnit.h"
 
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Symbol/SymbolFile.h"
@@ -111,4 +112,142 @@ DWARFASTParser::GetAccessTypeFromDWARF(uint32_t dwarf_accessibility) {
     break;
   }
   return eAccessNone;
+}
+
+ParsedDWARFTypeAttributes::ParsedDWARFTypeAttributes(const DWARFDIE &die) {
+  DWARFAttributes attributes;
+  size_t num_attributes = die.GetAttributes(attributes);
+  for (size_t i = 0; i < num_attributes; ++i) {
+    dw_attr_t attr = attributes.AttributeAtIndex(i);
+    DWARFFormValue form_value;
+    if (!attributes.ExtractFormValueAtIndex(i, form_value))
+      continue;
+    switch (attr) {
+    case DW_AT_abstract_origin:
+      abstract_origin = form_value;
+      break;
+
+    case DW_AT_accessibility:
+      accessibility = DWARFASTParser::GetAccessTypeFromDWARF(form_value.Unsigned());
+      break;
+
+    case DW_AT_artificial:
+      if (form_value.Boolean())
+        setIsArtificial();
+      break;
+
+    case DW_AT_bit_stride:
+      bit_stride = form_value.Unsigned();
+      break;
+
+    case DW_AT_byte_size:
+      byte_size = form_value.Unsigned();
+      break;
+
+    case DW_AT_byte_stride:
+      byte_stride = form_value.Unsigned();
+      break;
+
+    case DW_AT_calling_convention:
+      calling_convention = form_value.Unsigned();
+      break;
+
+    case DW_AT_containing_type:
+      containing_type = form_value;
+      break;
+
+    case DW_AT_decl_file:
+      // die.GetCU() can differ if DW_AT_specification uses DW_FORM_ref_addr.
+      decl.SetFile(
+          attributes.CompileUnitAtIndex(i)->GetFile(form_value.Unsigned()));
+      break;
+    case DW_AT_decl_line:
+      decl.SetLine(form_value.Unsigned());
+      break;
+    case DW_AT_decl_column:
+      decl.SetColumn(form_value.Unsigned());
+      break;
+
+    case DW_AT_declaration:
+      if (form_value.Boolean())
+        setIsForwardDeclaration();
+      break;
+
+    case DW_AT_encoding:
+      encoding = form_value.Unsigned();
+      break;
+
+    case DW_AT_enum_class:
+      if (form_value.Boolean())
+        setIsScopedEnum();
+      break;
+
+    case DW_AT_explicit:
+      if (form_value.Boolean())
+        setIsExplicit();
+      break;
+
+    case DW_AT_external:
+      if (form_value.Unsigned())
+        setIsExternal();
+      break;
+
+    case DW_AT_inline:
+      if (form_value.Boolean())
+        setIsInline();
+      break;
+
+    case DW_AT_linkage_name:
+    case DW_AT_MIPS_linkage_name:
+      mangled_name = form_value.AsCString();
+      break;
+
+    case DW_AT_name:
+      name.SetCString(form_value.AsCString());
+      break;
+
+    case DW_AT_object_pointer:
+      object_pointer = form_value.Reference();
+      break;
+
+    case DW_AT_signature:
+      signature = form_value;
+      break;
+
+    case DW_AT_specification:
+      specification = form_value;
+      break;
+
+    case DW_AT_type:
+      type = form_value;
+      break;
+
+    case DW_AT_virtuality:
+      if (form_value.Unsigned())
+        setIsVirtual();
+      break;
+
+    case DW_AT_APPLE_objc_complete_type:
+      if (form_value.Signed())
+        setIsObjCCompleteType();
+      break;
+
+    case DW_AT_APPLE_objc_direct:
+      setIsObjCDirectCall();
+      break;
+
+    case DW_AT_APPLE_runtime_class:
+      class_language = (LanguageType)form_value.Signed();
+      break;
+
+    case DW_AT_GNU_vector:
+      if (form_value.Boolean())
+        setIsVector();
+      break;
+    case DW_AT_export_symbols:
+      if (form_value.Boolean())
+        setIsExportsSymbols();
+      break;
+    }
+  }
 }

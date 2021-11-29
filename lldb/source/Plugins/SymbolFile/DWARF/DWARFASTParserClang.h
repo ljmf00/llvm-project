@@ -252,39 +252,4 @@ private:
       lldb_private::ClangASTImporter::LayoutInfo &layout_info);
 };
 
-/// Parsed form of all attributes that are relevant for type reconstruction.
-/// Some attributes are relevant for all kinds of types (declaration), while
-/// others are only meaningful to a specific type (is_virtual)
-struct ParsedDWARFTypeAttributes {
-  explicit ParsedDWARFTypeAttributes(const DWARFDIE &die);
-
-  lldb::AccessType accessibility = lldb::eAccessNone;
-  bool is_artificial = false;
-  bool is_complete_objc_class = false;
-  bool is_explicit = false;
-  bool is_forward_declaration = false;
-  bool is_inline = false;
-  bool is_scoped_enum = false;
-  bool is_vector = false;
-  bool is_virtual = false;
-  bool is_objc_direct_call = false;
-  bool exports_symbols = false;
-  clang::StorageClass storage = clang::SC_None;
-  const char *mangled_name = nullptr;
-  lldb_private::ConstString name;
-  lldb_private::Declaration decl;
-  DWARFDIE object_pointer;
-  DWARFFormValue abstract_origin;
-  DWARFFormValue containing_type;
-  DWARFFormValue signature;
-  DWARFFormValue specification;
-  DWARFFormValue type;
-  lldb::LanguageType class_language = lldb::eLanguageTypeUnknown;
-  llvm::Optional<uint64_t> byte_size;
-  size_t calling_convention = llvm::dwarf::DW_CC_normal;
-  uint32_t bit_stride = 0;
-  uint32_t byte_stride = 0;
-  uint32_t encoding = 0;
-};
-
 #endif // LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFASTPARSERCLANG_H
