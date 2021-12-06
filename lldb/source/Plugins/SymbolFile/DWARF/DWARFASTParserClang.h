@@ -153,14 +153,6 @@ protected:
 
   void LinkDeclToDIE(clang::Decl *decl, const DWARFDIE &die);
 
-  /// If \p type_sp is valid, calculate and set its symbol context scope, and
-  /// update the type list for its backing symbol file.
-  ///
-  /// Returns \p type_sp.
-  lldb::TypeSP
-  UpdateSymbolContextScopeForType(const lldb_private::SymbolContext &sc,
-                                  const DWARFDIE &die, lldb::TypeSP type_sp);
-
   /// Follow Clang Module Skeleton CU references to find a type definition.
   lldb::TypeSP ParseTypeFromClangModule(const lldb_private::SymbolContext &sc,
                                         const DWARFDIE &die,

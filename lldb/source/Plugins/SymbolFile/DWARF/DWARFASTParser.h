@@ -61,6 +61,14 @@ public:
                       const lldb_private::ExecutionContext *exe_ctx = nullptr);
 
   static lldb::AccessType GetAccessTypeFromDWARF(uint32_t dwarf_accessibility);
+
+  /// If \p type_sp is valid, calculate and set its symbol context scope, and
+  /// update the type list for its backing symbol file.
+  ///
+  /// Returns \p type_sp.
+  lldb::TypeSP
+  UpdateSymbolContextScopeForType(const lldb_private::SymbolContext &sc,
+                                  const DWARFDIE &die, lldb::TypeSP type_sp);
 };
 
 /// Parsed form of all attributes that are relevant for type reconstruction.
